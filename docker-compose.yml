@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: pfm_postgres
+    environment:
+      POSTGRES_DB: pfm_dev
+      POSTGRES_USER: pfm_user
+      POSTGRES_PASSWORD: pfm_dev_secure_2024_xyz789
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init:/docker-entrypoint-initdb.d
+    networks:
+      - pfm_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pfm_user -d pfm_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: pfm_app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://pfm_user:pfm_dev_secure_2024_xyz789@postgres:5432/pfm_dev
+      - ENVIRONMENT=development
+      - SECRET_KEY=pfm_dev_secret_key_2024_xyz789_abcdefghijklmnopqrstuvwxyz123456789
+      - JWT_SECRET_KEY=pfm_dev_jwt_secret_2024_xyz789_abcdefghijklmnopqrstuvwxyz123456789
+      - GOOGLE_CLIENT_ID=your_google_client_id_here
+      - GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pfm_network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+
+networks:
+  pfm_network:
+    driver: bridge 
