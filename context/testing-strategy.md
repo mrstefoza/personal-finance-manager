@@ -1,4 +1,4 @@
-# Testing Strategy
+yes,# Testing Strategy
 
 ## Overview
 Comprehensive testing approach with automated test execution on every code change to ensure code quality and prevent regressions.

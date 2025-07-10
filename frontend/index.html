@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Finance Manager - MFA Demo</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Personal Finance Manager</h1>
+            <p>MFA (Multi-Factor Authentication) Demo</p>
+            <div class="demo-info">
+                <p><strong>Demo Instructions:</strong></p>
+                <ol>
+                    <li>Register a new account or login with existing credentials</li>
+                    <li>Setup TOTP MFA by scanning the QR code with your authenticator app</li>
+                    <li>Test the complete MFA workflow</li>
+                    <li>Try email MFA and backup codes</li>
+                </ol>
+            </div>
+        </header>
+
+        <!-- Authentication Section -->
+        <section id="auth-section" class="section">
+            <div class="auth-tabs">
+                <button id="login-tab" class="tab-button active">Login</button>
+                <button id="register-tab" class="tab-button">Register</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login-form-container" class="auth-form">
+                <h2>Login</h2>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="login-email">Email:</label>
+                        <input type="email" id="login-email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password:</label>
+                        <input type="password" id="login-password" name="password" required>
+                    </div>
+                    <button type="submit">Login</button>
+                </form>
+                
+                <!-- Google OAuth Button -->
+                <div class="oauth-section">
+                    <div class="divider">
+                        <span>or</span>
+                    </div>
+                    <button id="google-login-btn" class="oauth-btn google-btn">
+                        <svg class="google-icon" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                        Continue with Google
+                    </button>
+                </div>
+                
+                <div id="login-message" class="message"></div>
+            </div>
+
+            <!-- MFA Verification Form (shown during login) -->
+            <div id="mfa-verification-container" class="auth-form" style="display: none;">
+                <h2>MFA Verification Required</h2>
+                <div id="mfa-verification-content">
+                    <p id="mfa-verification-instruction">Please enter your MFA code to complete login.</p>
+                    <div class="form-group">
+                        <label for="mfa-verification-code">MFA Code:</label>
+                        <input type="text" id="mfa-verification-code" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit code">
+                        <button id="mfa-verify-btn">Verify & Complete Login</button>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="remember-device-checkbox">
+                            <span class="checkmark"></span>
+                            Remember this device for 7 days
+                        </label>
+                        <small>This will skip MFA verification on this device for the next 7 days.</small>
+                    </div>
+                    <button id="mfa-back-to-login-btn" class="secondary-btn">Back to Login</button>
+                </div>
+                <div id="mfa-verification-message" class="message"></div>
+            </div>
+
+            <!-- Registration Form -->
+            <div id="register-form-container" class="auth-form" style="display: none;">
+                <h2>Register</h2>
+                <form id="register-form">
+                    <div class="form-group">
+                        <label for="register-full-name">Full Name:</label>
+                        <input type="text" id="register-full-name" name="full_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-email">Email:</label>
+                        <input type="email" id="register-email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-phone">Phone:</label>
+                        <input type="tel" id="register-phone" name="phone" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-user-type">User Type:</label>
+                        <select id="register-user-type" name="user_type" required>
+                            <option value="">Select user type</option>
+                            <option value="individual">Individual</option>
+                            <option value="business">Business</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password">Password:</label>
+                        <input type="password" id="register-password" name="password" required>
+                        <small class="password-requirements">
+                            Password must be at least 8 characters with uppercase, lowercase, and digit
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-confirm-password">Confirm Password:</label>
+                        <input type="password" id="register-confirm-password" name="confirm_password" required>
+                    </div>
+                    <button type="submit">Register</button>
+                </form>
+                <div id="register-message" class="message"></div>
+            </div>
+        </section>
+
+        <!-- MFA Status Section -->
+        <section id="mfa-status-section" class="section" style="display: none;">
+            <h2>MFA Status</h2>
+            <div id="mfa-status" class="status-box">
+                <p><strong>TOTP Enabled:</strong> <span id="totp-status">Loading...</span></p>
+                <p><strong>Email MFA Enabled:</strong> <span id="email-mfa-status">Loading...</span></p>
+                <p><strong>MFA Required:</strong> <span id="mfa-required-status">Loading...</span></p>
+                <p><strong>Backup Codes Remaining:</strong> <span id="backup-codes-remaining">Loading...</span></p>
+            </div>
+            <button id="refresh-status-btn">Refresh Status</button>
+        </section>
+
+        <!-- TOTP Setup Section -->
+        <section id="totp-setup-section" class="section" style="display: none;">
+            <h2>TOTP Setup</h2>
+            <div class="section-info">
+                <p>TOTP (Time-based One-Time Password) uses authenticator apps like Google Authenticator, Authy, or Microsoft Authenticator.</p>
+            </div>
+            <div id="totp-setup-content">
+                <button id="setup-totp-btn">Setup TOTP</button>
+                <div id="totp-setup-result" class="setup-result" style="display: none;">
+                    <h3>Scan QR Code</h3>
+                    <div id="qr-code-container"></div>
+                    <div class="secret-info">
+                        <p><strong>Secret:</strong> <span id="totp-secret"></span></p>
+                        <p><strong>Backup Codes:</strong></p>
+                        <ul id="backup-codes"></ul>
+                        <small>Store these backup codes safely. You can use them to recover your account if you lose access to your authenticator app.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="totp-verify-code">Enter 6-digit code from your app:</label>
+                        <input type="text" id="totp-verify-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000">
+                        <button id="verify-totp-btn">Verify & Enable TOTP</button>
+                    </div>
+                </div>
+            </div>
+            <div id="totp-setup-message" class="message"></div>
+        </section>
+
+        <!-- TOTP Management Section -->
+        <section id="totp-management-section" class="section" style="display: none;">
+            <h2>TOTP Management</h2>
+            <div class="section-info">
+                <p>To disable TOTP, you need to provide a valid TOTP code from your authenticator app.</p>
+            </div>
+            <div class="form-group">
+                <label for="totp-disable-code">Enter TOTP code to disable:</label>
+                <input type="text" id="totp-disable-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000">
+                <button id="disable-totp-btn">Disable TOTP</button>
+            </div>
+            <div id="totp-management-message" class="message"></div>
+        </section>
+
+        <!-- Email MFA Section -->
+        <section id="email-mfa-section" class="section" style="display: none;">
+            <h2>Email MFA</h2>
+            <div class="section-info">
+                <p>Email MFA sends verification codes to your email address. This is useful as a backup or alternative to TOTP.</p>
+            </div>
+            <div class="form-group">
+                <button id="setup-email-mfa-btn">Enable Email MFA</button>
+                <button id="disable-email-mfa-btn">Disable Email MFA</button>
+            </div>
+            <div class="form-group">
+                <label for="email-mfa-email">Email for MFA code:</label>
+                <input type="email" id="email-mfa-email" placeholder="your-email@example.com">
+                <button id="send-email-code-btn">Send Code</button>
+            </div>
+            <div class="form-group">
+                <label for="email-verify-code">Enter 6-digit code from email:</label>
+                <input type="text" id="email-verify-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000">
+                <button id="verify-email-btn">Verify Email Code</button>
+            </div>
+            <div id="email-mfa-message" class="message"></div>
+        </section>
+
+        <!-- Backup Codes Section -->
+        <section id="backup-codes-section" class="section" style="display: none;">
+            <h2>Backup Codes</h2>
+            <div class="section-info">
+                <p>Backup codes are one-time use codes that can be used to access your account if you lose access to your MFA methods.</p>
+            </div>
+            <div class="form-group">
+                <label for="backup-code">Enter backup code:</label>
+                <input type="text" id="backup-code" maxlength="8" pattern="[0-9]{8}" placeholder="00000000">
+                <button id="verify-backup-btn">Verify Backup Code</button>
+            </div>
+            <div id="backup-message" class="message"></div>
+        </section>
+
+        <!-- Logout Section -->
+        <section id="logout-section" class="section" style="display: none;">
+            <button id="logout-btn">Logout</button>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 

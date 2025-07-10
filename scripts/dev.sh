@@ -45,9 +45,11 @@ start_dev() {
     
     print_success "Development environment started!"
     print_status "Access points:"
+    echo "  - Frontend: http://localhost:3000"
     echo "  - API: http://localhost:8000"
     echo "  - Documentation: http://localhost:8000/docs"
     echo "  - Health Check: http://localhost:8000/health"
+    echo "  - Mailpit (Email Testing): http://localhost:8025"
 }
 
 # Function to stop development environment

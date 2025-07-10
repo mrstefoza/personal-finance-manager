@@ -1,5 +1,7 @@
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from typing import Optional
+from cryptography.fernet import Fernet
 
 
 class Settings(BaseSettings):
@@ -20,6 +22,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
+    # Encryption
+    FERNET_KEY: Optional[str] = None
+    
     # OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
@@ -30,9 +35,19 @@ class Settings(BaseSettings):
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    # MFA Session
+    MFA_SESSION_DAYS: int = 7
+    
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=True
+    )
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Generate Fernet key if not provided
+        if not self.FERNET_KEY:
+            self.FERNET_KEY = Fernet.generate_key().decode()
 
 
 # Create settings instance
