@@ -246,3 +246,14 @@ async def test_backup_codes_verify_invalid_code(client, auth_headers):
     verify_data = {"code": "invalid-code"}
     response = await client.post("/api/v1/mfa/backup/verify", json=verify_data, headers=auth_headers)
     assert response.status_code == 422  # Validation error for invalid format 
+
+@pytest.mark.asyncio
+async def test_send_email_mfa_code_when_not_enabled(client, auth_headers):
+    """Test sending email MFA code when not enabled returns 400 error"""
+    response = await client.post(
+        "/api/v1/mfa/email/send-code",
+        headers=auth_headers,
+        json={"email": "test@example.com"}
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Email MFA is not enabled" 

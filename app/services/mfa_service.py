@@ -132,9 +132,25 @@ class MFAService:
     
     async def send_email_mfa_code(self, user_id: uuid.UUID, email: str) -> str:
         """Send email MFA code and store it"""
+        print(f"DEBUG: send_email_mfa_code called for user_id: {user_id}, email: {email}")
+        
+        # Check if email MFA is enabled for this user
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            print(f"DEBUG: User not found: {user_id}")
+            raise ValueError("User not found")
+        
+        print(f"DEBUG: User email_mfa_enabled: {user.get('email_mfa_enabled')}")
+        
+        if not user.get("email_mfa_enabled"):
+            print(f"DEBUG: Email MFA not enabled for user: {user_id}")
+            raise ValueError("Email MFA is not enabled for this user")
+        
         # Generate 6-digit code
         code = ''.join([str(uuid.uuid4().int % 10) for _ in range(6)])
         code_hash = pwd_context.hash(code)
+        
+        print(f"DEBUG: Generated code: {code}")
         
         # Store code with expiration (5 minutes)
         expires_at = datetime.utcnow() + timedelta(minutes=5)
@@ -146,7 +162,6 @@ class MFAService:
         await self.db.execute(query, user_id, code_hash, expires_at)
         
         # Get user name for email
-        user = await self.get_user_by_id(user_id)
         user_name = user.get("full_name") if user else None
         
         # Send email with code
