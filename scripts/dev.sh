@@ -105,6 +105,51 @@ access_db() {
     docker compose exec postgres psql -U pfm_user -d pfm_dev
 }
 
+# Function to run database migrations
+run_migrations() {
+    print_status "Running database migrations..."
+    docker compose exec app alembic upgrade head
+    print_success "Migrations completed!"
+}
+
+# Function to create new migration
+create_migration() {
+    if [ -z "$1" ]; then
+        print_error "Please provide a migration description"
+        echo "Usage: $0 migrate-create \"description\""
+        exit 1
+    fi
+    
+    print_status "Creating new migration: $1"
+    docker compose exec app alembic revision --autogenerate -m "$1"
+    print_success "Migration created!"
+}
+
+# Function to show migration status
+show_migrations() {
+    print_status "Migration status:"
+    docker compose exec app alembic current
+    echo ""
+    print_status "Migration history:"
+    docker compose exec app alembic history
+}
+
+# Function to reset database (WARNING: This will delete all data)
+reset_db() {
+    print_warning "This will delete ALL data in the database!"
+    read -p "Are you sure you want to continue? (y/N): " -n 1 -r
+    echo
+    
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_status "Resetting database..."
+        docker compose down -v
+        docker compose up -d
+        print_success "Database reset complete!"
+    else
+        print_status "Database reset cancelled."
+    fi
+}
+
 # Function to show status
 show_status() {
     print_status "Development environment status:"
@@ -127,6 +172,10 @@ show_help() {
     echo "  lint        Lint code with Flake8"
     echo "  types       Check types with MyPy"
     echo "  db          Access PostgreSQL database"
+    echo "  migrate     Run database migrations"
+    echo "  migrate-create \"desc\"  Create new migration"
+    echo "  migrate-status  Show migration status"
+    echo "  reset-db    Reset database (WARNING: deletes all data)"
     echo "  status      Show environment status"
     echo "  help        Show this help message"
     echo ""
@@ -134,6 +183,8 @@ show_help() {
     echo "  $0 start"
     echo "  $0 test -v"
     echo "  $0 format"
+    echo "  $0 migrate"
+    echo "  $0 migrate-create \"Add user preferences table\""
 }
 
 # Main script logic
@@ -164,6 +215,18 @@ case "${1:-help}" in
         ;;
     db)
         access_db
+        ;;
+    migrate)
+        run_migrations
+        ;;
+    migrate-create)
+        create_migration "$2"
+        ;;
+    migrate-status)
+        show_migrations
+        ;;
+    reset-db)
+        reset_db
         ;;
     status)
         show_status
