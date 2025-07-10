@@ -2,6 +2,18 @@
 
 This folder contains all the architectural decisions, database schemas, and technical specifications for the Personal Finance Manager backend project.
 
+## 🤖 AI Assistant Reminder
+**IMPORTANT**: When working on this project, always update this context file when:
+- Adding new features or functionality
+- Changing deployment procedures
+- Encountering and solving new issues
+- Updating dependencies or configurations
+- Adding new scripts or tools
+- Changing database schema or migration procedures
+- Updating security measures or authentication flows
+
+**Keep this context current and comprehensive for future reference and troubleshooting.**
+
 ## Project Overview
 - **Backend**: Python + FastAPI + PostgreSQL
 - **Purpose**: Personal finance management application for individuals and businesses
