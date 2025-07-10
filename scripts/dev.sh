@@ -41,7 +41,7 @@ start_dev() {
     print_status "Starting development environment..."
     check_docker
     
-    docker-compose up -d
+    docker compose up -d
     
     print_success "Development environment started!"
     print_status "Access points:"
@@ -55,7 +55,7 @@ start_dev() {
 # Function to stop development environment
 stop_dev() {
     print_status "Stopping development environment..."
-    docker-compose down
+    docker compose down
     print_success "Development environment stopped!"
 }
 
@@ -69,46 +69,46 @@ restart_dev() {
 # Function to view logs
 view_logs() {
     print_status "Viewing application logs..."
-    docker-compose logs -f app
+    docker compose logs -f app
 }
 
 # Function to run tests
 run_tests() {
     print_status "Running tests..."
-    docker-compose exec app pytest "$@"
+    docker compose exec app pytest "$@"
 }
 
 # Function to format code
 format_code() {
     print_status "Formatting code with Black..."
-    docker-compose exec app black .
+    docker compose exec app black .
     print_success "Code formatted!"
 }
 
 # Function to lint code
 lint_code() {
     print_status "Linting code with Flake8..."
-    docker-compose exec app flake8 .
+    docker compose exec app flake8 .
     print_success "Code linting completed!"
 }
 
 # Function to check types
 check_types() {
     print_status "Checking types with MyPy..."
-    docker-compose exec app mypy .
+    docker compose exec app mypy .
     print_success "Type checking completed!"
 }
 
 # Function to access database
 access_db() {
     print_status "Accessing PostgreSQL database..."
-    docker-compose exec postgres psql -U pfm_user -d pfm_dev
+    docker compose exec postgres psql -U pfm_user -d pfm_dev
 }
 
 # Function to show status
 show_status() {
     print_status "Development environment status:"
-    docker-compose ps
+    docker compose ps
 }
 
 # Function to show help
