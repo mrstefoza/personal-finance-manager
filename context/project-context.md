@@ -1,108 +1,201 @@
 # Personal Finance Manager - Project Context
 
-## Overview
-This document serves as a central reference for all project context files. Each file contains detailed information about specific aspects of the Personal Finance Manager application.
+This folder contains all the architectural decisions, database schemas, and technical specifications for the Personal Finance Manager backend project.
 
-## Context Files Index
+## Project Overview
+- **Backend**: Python + FastAPI + PostgreSQL
+- **Purpose**: Personal finance management application for individuals and businesses
+- **Focus**: User management and authentication system
 
-### 📋 [README.md](README.md)
-**Purpose**: Project overview and getting started guide
-**Contents**: 
-- Project description and features
-- Quick start instructions
-- Technology stack overview
-- Development setup guide
+## Documentation Index
 
-### 🏗️ [project-structure.md](project-structure.md)
-**Purpose**: Detailed project organization and file structure
-**Contents**:
-- Directory layout and organization
-- Module structure and responsibilities
-- Code organization principles
-- File naming conventions
+### Architecture & Design
+- [Technical Stack](technical-stack.md) - Technology choices and rationale
+- [Project Structure](project-structure.md) - Folder organization and architecture
+- [Database Design](database-design.md) - Schema and relationships
+- [API Design](api-design.md) - Endpoint structure and patterns
 
-### ⚙️ [technical-stack.md](technical-stack.md)
-**Purpose**: Technology choices and architecture decisions
-**Contents**:
-- Backend framework (FastAPI)
-- Database (PostgreSQL)
-- Authentication (JWT, OAuth)
-- Frontend technologies
-- Development tools and libraries
+### Authentication & Security
+- [Authentication Strategy](authentication-strategy.md) - JWT, OAuth, MFA implementation
+- [Security Features](security-features.md) - Security measures and best practices
+- [User Management](user-management.md) - User types, roles, and permissions
 
-### 🗄️ [database-design.md](database-design.md)
-**Purpose**: Database schema and data modeling
-**Contents**:
-- Table structures and relationships
-- Indexes and constraints
-- Data types and validations
-- Migration strategies
+### Development & Operations
+- [Development Environment](development-environment.md) - Docker setup, hot reload, API documentation
+- [Development Workflow](development-workflow.md) - Coding standards and processes
+- [Testing Strategy](testing-strategy.md) - Testing approach and tools
+- [Error Handling](error-handling.md) - Error management and logging
 
-### 🔐 [authentication-strategy.md](authentication-strategy.md)
-**Purpose**: Authentication and security implementation
-**Contents**:
-- JWT token strategy
-- OAuth integration (Google)
-- Multi-factor authentication (TOTP, Email)
-- Security measures and best practices
-- API endpoint specifications
+### Database Schemas
+- [User Tables](database/user-tables.md) - Complete user-related table definitions
+- [Indexes](database/indexes.md) - Database performance optimizations
 
-### 🧪 [testing-strategy.md](testing-strategy.md)
-**Purpose**: Comprehensive testing approach and guidelines
-**Contents**:
-- Testing philosophy and workflow
-- Test categories (Unit, Integration, E2E, Security)
-- Test structure and organization
-- Coverage requirements (90%+)
-- Automated test execution
-- Quality gates and best practices
+## Key Decisions Made
 
-### 🛠️ [development-environment.md](development-environment.md)
-**Purpose**: Development setup and workflow
-**Contents**:
-- Docker environment configuration
-- Development tools and scripts
-- Hot reload setup
-- Database management
-- Debugging and logging
+### Authentication
+- ✅ JWT with refresh tokens (15-30 min access, 7-30 days refresh)
+- ✅ Email/password + Google OAuth
+- ✅ MFA: TOTP + Email (no SMS due to cost)
+- ✅ Token revocation via database storage
 
-### 📁 [database/](database/)
-**Purpose**: Database-related files and scripts
-**Contents**:
-- SQL migration files
-- Database initialization scripts
-- Schema definitions
-- Seed data
+### Database
+- ✅ Raw SQL with asyncpg (no ORM)
+- ✅ Alembic for migrations
+- ✅ UUID primary keys
+- ✅ User types: individual, business
 
-## Key Project Information
+### Security
+- ✅ Rate limiting for MFA and login attempts
+- ✅ Account lockout after failed attempts
+- ✅ Encrypted sensitive data (TOTP secrets, backup codes)
+- ✅ Audit trails for all actions
 
-### Application Type
-Personal Finance Manager supporting both individual and business users with comprehensive authentication, MFA, and financial management features.
+### Development & Deployment
+- ✅ Docker Compose for development and production
+- ✅ Hot reload for development
+- ✅ Automated migration system with Alembic
+- ✅ Helper scripts for common tasks
 
-### Core Features
-- **User Management**: Registration, login, profile management
-- **Authentication**: JWT tokens, Google OAuth, Multi-factor authentication
-- **MFA Support**: TOTP (Google Authenticator), Email codes, Backup codes
-- **Security**: Password hashing, rate limiting, account lockout
-- **Database**: PostgreSQL with encrypted sensitive data
+## Database Migration System
 
-### Development Status
-- ✅ Basic infrastructure implemented
-- ✅ User registration and authentication
-- ✅ JWT token management
-- ✅ TOTP MFA setup and verification
-- ✅ Frontend demo with MFA flows
-- ⚠️ Testing coverage needs improvement
-- 🔄 Google OAuth implementation pending
-- 🔄 Email MFA implementation pending
+### Overview
+The project uses **Alembic** for database migrations with a hybrid approach:
+- **Initial setup**: SQL scripts in `sql/init/` create base schema on fresh database
+- **Schema changes**: Alembic migrations handle all subsequent schema changes
+- **Version tracking**: Alembic tracks applied migrations in `alembic_version` table
 
-### Current Issues
+### Migration Files
+- **Location**: `alembic/versions/`
+- **Current migrations**:
+  - `0001_initial_schema.py` - Base schema (users, sessions, MFA tables)
+  - `0002_add_mfa_sessions.py` - MFA session tracking
+- **Format**: Raw SQL with upgrade/downgrade functions
+
+### Deployment Workflow
+
+#### Fresh Server Setup
+```bash
+# 1. Clone and setup
+git clone <repo-url>
+cd personal-finance-manager
+docker compose up -d
+
+# 2. Run migrations (creates all tables)
+./scripts/deploy.sh
+```
+
+#### Existing Server - New Code
+```bash
+# 1. Pull latest code
+git pull origin main
+
+# 2. Rebuild if new dependencies
+docker compose build app
+
+# 3. Start containers
+docker compose up -d
+
+# 4. Deploy with migrations
+./scripts/deploy.sh
+```
+
+#### Existing Server - First Time with Alembic
+```bash
+# 1. Pull latest code
+git pull origin main
+
+# 2. Rebuild container
+docker compose build app
+docker compose up -d
+
+# 3. Mark existing schema as up-to-date (IMPORTANT!)
+docker compose exec app alembic stamp head
+
+# 4. Deploy
+./scripts/deploy.sh
+```
+
+### Migration Commands
+
+#### Development
+```bash
+# Run migrations
+./scripts/dev.sh migrate
+
+# Create new migration
+./scripts/dev.sh migrate-create "Add user preferences table"
+
+# Check migration status
+./scripts/dev.sh migrate-status
+
+# Reset database (WARNING: deletes all data)
+./scripts/dev.sh reset-db
+```
+
+#### Production
+```bash
+# Full deployment with migrations
+./scripts/deploy.sh
+
+# Run migrations only
+./scripts/deploy.sh migrate
+
+# Check application health
+./scripts/deploy.sh health
+```
+
+### Common Issues & Solutions
+
+#### "DuplicateTable: relation already exists"
+**Cause**: Database was initialized with SQL scripts, but Alembic doesn't know about existing tables.
+
+**Solution**:
+```bash
+# Mark current schema as up-to-date
+docker compose exec app alembic stamp head
+```
+
+#### "No module named 'psycopg2'"
+**Cause**: New dependency not installed in container.
+
+**Solution**:
+```bash
+# Rebuild container with new requirements
+docker compose build app
+docker compose up -d
+```
+
+#### Migration fails
+**Troubleshooting**:
+```bash
+# Check migration status
+./scripts/dev.sh migrate-status
+
+# Check database logs
+docker compose logs postgres
+
+# Manual migration with verbose output
+docker compose exec app alembic upgrade head --verbose
+```
+
+## Development Status
+
+### ✅ Completed Features
+- Basic infrastructure implemented
+- User registration and authentication
+- JWT token management
+- TOTP MFA setup and verification
+- Frontend demo with MFA flows
+- Database migration system
+- Deployment automation
+
+### ⚠️ Current Issues
 - Limited test coverage (only 4 basic tests)
 - Missing integration tests for MFA flows
 - No automated test execution on code changes
 - Manual debugging required for production issues
 
-### Next Priorities
+### 🔄 Next Priorities
 1. Implement comprehensive test suite according to testing strategy
 2. Add automated test execution on code changes
 3. Complete Google OAuth integration
@@ -117,46 +210,91 @@ Personal Finance Manager supporting both individual and business users with comp
 ./scripts/dev.sh test       # Run tests
 ./scripts/dev.sh logs       # View logs
 ./scripts/dev.sh restart    # Restart containers
+./scripts/dev.sh migrate    # Run migrations
 ```
 
-### Testing
+### Production
 ```bash
-./scripts/dev.sh test -v                    # Verbose test output
-./scripts/dev.sh test --cov=app             # With coverage
-./scripts/dev.sh test tests/test_api/       # API tests only
+./scripts/deploy.sh         # Full deployment with migrations
+./scripts/deploy.sh migrate # Run migrations only
+./scripts/deploy.sh health  # Check application health
 ```
 
-### Database
+### Database Management
 ```bash
-./scripts/dev.sh db                         # Access database
-docker-compose exec postgres psql -U pfm_user -d pfm_dev  # Direct DB access
+# Access database
+docker compose exec postgres psql -U pfm_user -d pfm_dev
+
+# Run migrations
+docker compose exec app alembic upgrade head
+
+# Create new migration
+docker compose exec app alembic revision --autogenerate -m "description"
+
+# Mark schema as up-to-date (for existing databases)
+docker compose exec app alembic stamp head
 ```
 
-## Architecture Overview
+## Environment Variables
 
+### Required for Production
+```bash
+SECRET_KEY=your_secure_secret_key
+JWT_SECRET_KEY=your_secure_jwt_secret
+DATABASE_URL=your_production_database_url
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
-Frontend (Vanilla JS) ←→ FastAPI Backend ←→ PostgreSQL Database
-                              ↓
-                        Redis (Future: Caching)
-                              ↓
-                        External Services (Google OAuth, Email)
+
+### Development Defaults
+```bash
+ENVIRONMENT=development
+SECRET_KEY=pfm_dev_secret_key_2024_xyz789_abcdefghijklmnopqrstuvwxyz123456789
+JWT_SECRET_KEY=pfm_dev_jwt_secret_2024_xyz789_abcdefghijklmnopqrstuvwxyz123456789
+DATABASE_URL=postgresql://pfm_user:pfm_dev_secure_2024_xyz789@postgres:5432/pfm_dev
 ```
 
-## Security Features
+## Security Considerations
 
-- **Password Security**: bcrypt hashing with cost factor 12
-- **Token Security**: JWT with HMAC-SHA256 signing
-- **MFA Security**: TOTP secrets encrypted at rest
-- **Rate Limiting**: Failed login attempts and MFA attempts
-- **Session Management**: Device tracking and session limits
+### Migration Security
+- Migrations run with database user permissions
+- Ensure proper database user setup
+- Use least privilege principle
+- Never include secrets in migrations
 
-## Testing Requirements
+### Data Protection
+- Encrypt sensitive data (TOTP secrets, backup codes)
+- Use environment variables for configuration
+- Implement audit trails
+- Regular security updates
 
-- **Coverage Target**: 90%+ overall coverage
-- **Test Categories**: Unit, Integration, E2E, Security
-- **Automation**: Tests run on every code change
-- **Quality Gates**: All tests pass, coverage threshold met
+## Troubleshooting Guide
 
----
+### Deployment Issues
+1. **Check container status**: `docker compose ps`
+2. **View logs**: `docker compose logs -f app`
+3. **Check database**: `docker compose exec postgres pg_isready -U pfm_user -d pfm_dev`
+4. **Verify migrations**: `docker compose exec app alembic current`
 
-*This context file serves as the single reference point for all project documentation. When working on the project, refer to the specific context files for detailed information about each aspect.* 
+### Common Error Solutions
+- **Container won't start**: Check Docker and disk space
+- **Database connection failed**: Verify DATABASE_URL and network
+- **Migration conflicts**: Use `alembic stamp head` for existing databases
+- **Missing dependencies**: Rebuild container with `docker compose build app`
+
+## Future Enhancements
+
+### Planned Features
+- [ ] Complete authentication implementation
+- [ ] Add financial management features
+- [ ] Implement reporting and analytics
+- [ ] Add mobile app support
+- [ ] Enhanced security features
+- [ ] Performance optimizations
+
+### Infrastructure Improvements
+- [ ] CI/CD pipeline with automated testing
+- [ ] Production monitoring and alerting
+- [ ] Database backup and recovery procedures
+- [ ] Load balancing and scaling
+- [ ] Security audit and penetration testing 
