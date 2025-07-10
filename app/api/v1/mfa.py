@@ -8,14 +8,17 @@ from app.schemas.mfa import (
 )
 from app.api.deps import get_database, get_current_user
 from app.core.config import settings
+from fastapi.security import HTTPBearer
 
 router = APIRouter()
+security = HTTPBearer()
 
 
 @router.get("/status", response_model=MFAStatusResponse)
 async def get_mfa_status(
     current_user: dict = Depends(get_current_user),
-    db: Database = Depends(get_database)
+    db: Database = Depends(get_database),
+    token: str = Depends(security)
 ):
     """Get MFA status for current user"""
     mfa_service = MFAService(db)

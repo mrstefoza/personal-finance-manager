@@ -4,14 +4,17 @@ from app.core.database import Database
 from app.services.user_service import UserService
 from app.schemas.user import UserProfile, UserUpdate, UserProfile as UserProfileSchema
 from app.api.deps import get_database, get_current_user
+from fastapi.security import HTTPBearer
 
 router = APIRouter()
+security = HTTPBearer()
 
 
 @router.get("/profile", response_model=UserProfileSchema)
 async def get_profile(
     current_user: dict = Depends(get_current_user),
-    db: Database = Depends(get_database)
+    db: Database = Depends(get_database),
+    token: str = Depends(security)
 ):
     """Get current user profile"""
     return UserProfileSchema(**current_user)
@@ -21,7 +24,8 @@ async def get_profile(
 async def update_profile(
     profile: UserUpdate,
     current_user: dict = Depends(get_current_user),
-    db: Database = Depends(get_database)
+    db: Database = Depends(get_database),
+    token: str = Depends(security)
 ):
     """Update current user profile"""
     try:
@@ -50,7 +54,8 @@ async def update_profile(
 @router.delete("/profile")
 async def delete_profile(
     current_user: dict = Depends(get_current_user),
-    db: Database = Depends(get_database)
+    db: Database = Depends(get_database),
+    token: str = Depends(security)
 ):
     """Delete current user profile"""
     try:

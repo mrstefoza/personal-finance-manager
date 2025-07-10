@@ -1,10 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.api.v1 import auth, users, mfa
 
+# Security scheme for JWT Bearer tokens
+security = HTTPBearer()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
