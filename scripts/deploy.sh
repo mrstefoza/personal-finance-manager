@@ -31,8 +31,8 @@ print_error() {
 
 # Function to check if containers are running
 check_containers() {
-    if ! docker-compose ps | grep -q "Up"; then
-        print_error "Containers are not running. Please start them first with: docker-compose up -d"
+    if ! docker compose ps | grep -q "Up"; then
+        print_error "Containers are not running. Please start them first with: docker compose up -d"
         exit 1
     fi
 }
@@ -44,7 +44,7 @@ wait_for_database() {
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
-        if docker-compose exec -T postgres pg_isready -U pfm_user -d pfm_dev > /dev/null 2>&1; then
+        if docker compose exec -T postgres pg_isready -U pfm_user -d pfm_dev > /dev/null 2>&1; then
             print_success "Database is ready"
             return 0
         fi
@@ -63,17 +63,17 @@ run_migrations() {
     print_status "Running database migrations..."
     
     # Check if alembic is available
-    if ! docker-compose exec -T app alembic --help > /dev/null 2>&1; then
+    if ! docker compose exec -T app alembic --help > /dev/null 2>&1; then
         print_error "Alembic is not available. Please ensure it's installed."
         exit 1
     fi
     
     # Get current migration version
-    local current_version=$(docker-compose exec -T app alembic current 2>/dev/null | grep -o '[0-9a-f]*' || echo "None")
+    local current_version=$(docker compose exec -T app alembic current 2>/dev/null | grep -o '[0-9a-f]*' || echo "None")
     print_status "Current migration version: $current_version"
     
     # Run migrations
-    if docker-compose exec -T app alembic upgrade head; then
+    if docker compose exec -T app alembic upgrade head; then
         print_success "Database migrations completed successfully"
     else
         print_error "Database migrations failed"
@@ -86,7 +86,7 @@ restart_app() {
     print_status "Restarting application..."
     
     # Restart only the app container to preserve database data
-    if docker-compose restart app; then
+    if docker compose restart app; then
         print_success "Application restarted successfully"
     else
         print_error "Failed to restart application"
@@ -126,11 +126,11 @@ show_summary() {
     echo "  - Frontend: http://localhost:3000"
     echo
     echo "To view logs:"
-    echo "  - Application: docker-compose logs -f app"
-    echo "  - Database: docker-compose logs -f postgres"
+    echo "  - Application: docker compose logs -f app"
+    echo "  - Database: docker compose logs -f postgres"
     echo
     echo "To run tests:"
-    echo "  docker-compose exec app pytest"
+    echo "  docker compose exec app pytest"
 }
 
 # Main deployment function
