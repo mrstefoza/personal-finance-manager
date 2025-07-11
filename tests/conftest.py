@@ -92,7 +92,7 @@ async def test_user(db_session, user_service, test_user_data):
     await db_session.execute("DELETE FROM users WHERE id = $1", user_dict["id"])
 
 @pytest_asyncio.fixture
-async def auth_headers(client):
+async def auth_headers(client, db_session):
     """Create authenticated headers for testing."""
     import uuid
     unique_id = str(uuid.uuid4())[:8]
@@ -110,6 +110,12 @@ async def auth_headers(client):
     
     response = await client.post("/api/v1/auth/register", json=user_data)
     assert response.status_code == 201
+    user_id = response.json()["id"]
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
     
     # Login to get token
     login_data = {
@@ -124,7 +130,7 @@ async def auth_headers(client):
     return {"Authorization": f"Bearer {token}"}
 
 @pytest_asyncio.fixture
-async def admin_headers(client):
+async def admin_headers(client, db_session):
     """Create admin authenticated headers for testing."""
     import uuid
     unique_id = str(uuid.uuid4())[:8]
@@ -142,6 +148,12 @@ async def admin_headers(client):
     
     response = await client.post("/api/v1/auth/register", json=user_data)
     assert response.status_code == 201
+    user_id = response.json()["id"]
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
     
     # Login to get token
     login_data = {

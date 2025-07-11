@@ -1,566 +1,368 @@
-// API Configuration
-const API_BASE_URL = 'http://localhost:8000/api/v1';
-
-// Global state
-let authToken = null;
+// Global variables
 let currentUser = null;
-let tempToken = null; // For MFA verification during login
-let mfaType = null; // Type of MFA required ("totp" or "email")
+let mfaSessionToken = null;
+
+// API base URL
+const API_BASE = 'http://localhost:8000/api/v1';
 
 // Utility functions
 function showMessage(elementId, message, type = 'info') {
     const element = document.getElementById(elementId);
-    element.textContent = message;
-    element.className = `message ${type}`;
-    element.style.display = 'block';
-    
-    // Auto-hide success messages after 5 seconds
-    if (type === 'success') {
-        setTimeout(() => {
-            element.style.display = 'none';
-        }, 5000);
+    if (element) {
+        element.textContent = message;
+        element.className = `message ${type}`;
+        element.style.display = 'block';
     }
 }
 
 function hideMessage(elementId) {
     const element = document.getElementById(elementId);
-    element.style.display = 'none';
+    if (element) {
+        element.style.display = 'none';
+    }
 }
 
-function showSection(sectionId) {
-    document.getElementById(sectionId).style.display = 'block';
-}
-
-function hideSection(sectionId) {
-    document.getElementById(sectionId).style.display = 'none';
-}
-
-function setLoading(button, isLoading) {
-    if (isLoading) {
+function setLoading(button, loading) {
+    if (loading) {
         button.disabled = true;
         button.textContent = 'Loading...';
     } else {
         button.disabled = false;
-        button.textContent = button.getAttribute('data-original-text') || button.textContent;
+        button.textContent = button.getAttribute('data-original-text') || 'Submit';
     }
 }
 
-// Form validation functions
-function validatePassword(password) {
-    const minLength = password.length >= 8;
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasDigit = /\d/.test(password);
-    
-    return minLength && hasUpperCase && hasLowerCase && hasDigit;
+function switchToLogin() {
+    document.getElementById('login-section').style.display = 'block';
+    document.getElementById('register-section').style.display = 'none';
+    document.getElementById('mfa-section').style.display = 'none';
+    document.getElementById('dashboard-section').style.display = 'none';
+    document.getElementById('email-verification-section').style.display = 'none';
 }
 
-function validateRegistrationForm(formData) {
+function switchToRegister() {
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('register-section').style.display = 'block';
+    document.getElementById('mfa-section').style.display = 'none';
+    document.getElementById('dashboard-section').style.display = 'none';
+    document.getElementById('email-verification-section').style.display = 'none';
+}
+
+function switchToMFA() {
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('register-section').style.display = 'none';
+    document.getElementById('mfa-section').style.display = 'block';
+    document.getElementById('dashboard-section').style.display = 'none';
+    document.getElementById('email-verification-section').style.display = 'none';
+}
+
+function switchToDashboard() {
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('register-section').style.display = 'none';
+    document.getElementById('mfa-section').style.display = 'none';
+    document.getElementById('dashboard-section').style.display = 'block';
+    document.getElementById('email-verification-section').style.display = 'none';
+}
+
+function switchToEmailVerification() {
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('register-section').style.display = 'none';
+    document.getElementById('mfa-section').style.display = 'none';
+    document.getElementById('dashboard-section').style.display = 'none';
+    document.getElementById('email-verification-section').style.display = 'block';
+}
+
+// API functions
+async function register(userData) {
+    const response = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData)
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Registration failed');
+    }
+
+    return await response.json();
+}
+
+async function login(email, password) {
+    const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Login failed');
+    }
+
+    return await response.json();
+}
+
+async function verifyMFA(tempToken, code, rememberDevice = false) {
+    const response = await fetch(`${API_BASE}/auth/mfa/verify`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            temp_token: tempToken,
+            code: code,
+            remember_device: rememberDevice
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'MFA verification failed');
+    }
+
+    return await response.json();
+}
+
+async function verifyEmail(token) {
+    const response = await fetch(`${API_BASE}/auth/verify-email`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: token })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Email verification failed');
+    }
+
+    return await response.json();
+}
+
+async function resendVerificationEmail(email) {
+    const response = await fetch(`${API_BASE}/auth/resend-verification`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to resend verification email');
+    }
+
+    return await response.json();
+}
+
+async function getMFAStatus() {
+    const response = await fetch(`${API_BASE}/mfa/status`, {
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to get MFA status');
+    }
+
+    return await response.json();
+}
+
+async function setupTOTP() {
+    const response = await fetch(`${API_BASE}/mfa/setup`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ method: 'totp' })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to setup TOTP');
+    }
+
+    return await response.json();
+}
+
+async function verifyTOTPSetup(code) {
+    const response = await fetch(`${API_BASE}/mfa/verify-totp`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code: code })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'TOTP verification failed');
+    }
+
+    return await response.json();
+}
+
+async function disableTOTP() {
+    const response = await fetch(`${API_BASE}/mfa/disable`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ method: 'totp' })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to disable TOTP');
+    }
+
+    return await response.json();
+}
+
+// Form validation
+function validateRegistrationForm(data) {
     const errors = [];
     
-    // Check password requirements
-    if (!validatePassword(formData.password)) {
-        errors.push('Password must be at least 8 characters with uppercase, lowercase, and digit');
+    if (!data.full_name || data.full_name.trim().length < 2) {
+        errors.push('Full name must be at least 2 characters long');
     }
     
-    // Check password confirmation
-    if (formData.password !== formData.confirm_password) {
-        errors.push('Passwords do not match');
-    }
-    
-    // Check email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
+    if (!data.email || !data.email.includes('@')) {
         errors.push('Please enter a valid email address');
     }
     
-    // Check phone format (basic validation)
-    const phoneRegex = /^\+?[\d\s\-\(\)]+$/;
-    if (!phoneRegex.test(formData.phone)) {
+    if (!data.phone || data.phone.trim().length < 10) {
         errors.push('Please enter a valid phone number');
     }
     
-    // Check required fields
-    if (!formData.full_name.trim()) {
-        errors.push('Full name is required');
+    if (!data.password || data.password.length < 8) {
+        errors.push('Password must be at least 8 characters long');
     }
     
-    if (!formData.user_type) {
-        errors.push('Please select a user type');
+    if (data.user_type && !['individual', 'business'].includes(data.user_type)) {
+        errors.push('User type must be either individual or business');
     }
     
     return errors;
 }
 
-// Tab switching functions
-function switchToLogin() {
-    document.getElementById('login-tab').classList.add('active');
-    document.getElementById('register-tab').classList.remove('active');
-    document.getElementById('login-form-container').style.display = 'block';
-    document.getElementById('register-form-container').style.display = 'none';
-    hideMessage('login-message');
-    hideMessage('register-message');
-}
-
-function switchToRegister() {
-    document.getElementById('register-tab').classList.add('active');
-    document.getElementById('login-tab').classList.remove('active');
-    document.getElementById('register-form-container').style.display = 'block';
-    document.getElementById('login-form-container').style.display = 'none';
-    hideMessage('login-message');
-    hideMessage('register-message');
-}
-
-// API functions
-async function apiRequest(endpoint, options = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
-    const config = {
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        },
-        ...options
-    };
-
-    if (authToken) {
-        config.headers['Authorization'] = `Bearer ${authToken}`;
-    }
-
-    try {
-        const response = await fetch(url, config);
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.detail || `HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        return data;
-    } catch (error) {
-        console.error('API Error:', error);
-        throw error;
-    }
-}
-
-// Authentication functions
-async function register(userData) {
-    try {
-        const response = await apiRequest('/auth/register', {
-            method: 'POST',
-            body: JSON.stringify(userData)
-        });
-        
-        return response;
-    } catch (error) {
-        throw error;
-    }
-}
-
-async function login(email, password) {
-    try {
-        // Check if we have a stored MFA session token
-        const mfaSessionToken = localStorage.getItem('mfaSessionToken');
-        
-        const loginData = { email, password };
-        if (mfaSessionToken) {
-            loginData.mfa_session_token = mfaSessionToken;
-        }
-        
-        const response = await apiRequest('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify(loginData)
-        });
-
-        if (response.requires_mfa) {
-            // MFA is required, store temporary token and show MFA verification
-            tempToken = response.temp_token;
-            mfaType = response.mfa_type;
-            currentUser = { email };
-            
-            // Show MFA verification form
-            showMFAVerification();
-            return response;
-        } else {
-            // No MFA required, proceed with normal login
-            authToken = response.access_token;
-            currentUser = { email };
-            
-            // Store token in localStorage
-            localStorage.setItem('authToken', authToken);
-            
-            return response;
-        }
-    } catch (error) {
-        throw error;
-    }
-}
-
-async function verifyMFALogin(code, rememberDevice = false) {
-    try {
-        const response = await apiRequest('/auth/mfa/verify', {
-            method: 'POST',
-            body: JSON.stringify({
-                temp_token: tempToken,
-                code: code,
-                mfa_type: mfaType,
-                remember_device: rememberDevice
-            })
-        });
-
-        // MFA verification successful, store tokens
-        authToken = response.access_token;
-        localStorage.setItem('authToken', authToken);
-        
-        // Store MFA session token if provided
-        if (response.mfa_session_token) {
-            localStorage.setItem('mfaSessionToken', response.mfa_session_token);
-        }
-        
-        // Clear temporary data
-        tempToken = null;
-        mfaType = null;
-        
-        return response;
-    } catch (error) {
-        throw error;
-    }
-}
-
-function showMFAVerification() {
-    // Hide login form, show MFA verification
-    document.getElementById('login-form-container').style.display = 'none';
-    document.getElementById('mfa-verification-container').style.display = 'block';
+function validateLoginForm(data) {
+    const errors = [];
     
-    // Update instruction based on MFA type
-    const instruction = document.getElementById('mfa-verification-instruction');
-    if (mfaType === 'totp') {
-        instruction.textContent = 'Please enter the 6-digit code from your authenticator app.';
-    } else if (mfaType === 'email') {
-        instruction.textContent = 'Please enter the 6-digit code sent to your email.';
+    if (!data.email || !data.email.includes('@')) {
+        errors.push('Please enter a valid email address');
     }
     
-    // Clear any previous messages
-    hideMessage('mfa-verification-message');
+    if (!data.password || data.password.length < 1) {
+        errors.push('Password is required');
+    }
+    
+    return errors;
 }
 
-function hideMFAVerification() {
-    // Hide MFA verification, show login form
-    document.getElementById('mfa-verification-container').style.display = 'none';
-    document.getElementById('login-form-container').style.display = 'block';
+// Event handlers
+function onLoginSuccess() {
+    // Store tokens
+    if (currentUser.access_token) {
+        localStorage.setItem('access_token', currentUser.access_token);
+    }
+    if (currentUser.refresh_token) {
+        localStorage.setItem('refresh_token', currentUser.refresh_token);
+    }
+    if (currentUser.mfa_session_token) {
+        mfaSessionToken = currentUser.mfa_session_token;
+        localStorage.setItem('mfa_session_token', currentUser.mfa_session_token);
+    }
     
-    // Clear form
-    document.getElementById('mfa-verification-code').value = '';
-    hideMessage('mfa-verification-message');
-    
-    // Clear temporary data
-    tempToken = null;
-    mfaType = null;
+    // Switch to dashboard
+    switchToDashboard();
+    updateDashboard();
+}
+
+function updateDashboard() {
+    // Update user info
+    const userInfo = document.getElementById('user-info');
+    if (userInfo && currentUser) {
+        userInfo.innerHTML = `
+            <h3>Welcome, ${currentUser.full_name || 'User'}!</h3>
+            <p>Email: ${currentUser.email}</p>
+            <p>Status: ${currentUser.profile_status}</p>
+            <p>Email Verified: ${currentUser.email_verified ? 'Yes' : 'No'}</p>
+        `;
+    }
 }
 
 function logout() {
-    authToken = null;
-    currentUser = null;
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('mfaSessionToken');
+    // Clear tokens
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('mfa_session_token');
     
-    // Show auth section, hide others
-    showSection('auth-section');
-    hideSection('mfa-status-section');
-    hideSection('totp-setup-section');
-    hideSection('totp-management-section');
-    hideSection('email-mfa-section');
-    hideSection('backup-codes-section');
-    hideSection('logout-section');
+    // Clear user data
+    currentUser = null;
+    mfaSessionToken = null;
+    
+    // Switch to login
+    switchToLogin();
     
     // Clear forms
     document.getElementById('login-form').reset();
     document.getElementById('register-form').reset();
-    
-    // Switch to login tab
-    switchToLogin();
 }
 
-// MFA functions
-async function getMFAStatus() {
-    try {
-        const status = await apiRequest('/mfa/status');
-        
-        document.getElementById('totp-status').textContent = status.totp_enabled ? 'Yes' : 'No';
-        document.getElementById('email-mfa-status').textContent = status.email_mfa_enabled ? 'Yes' : 'No';
-        document.getElementById('mfa-required-status').textContent = status.mfa_required ? 'Yes' : 'No';
-        document.getElementById('backup-codes-remaining').textContent = status.backup_codes_remaining || 0;
-        
-        return status;
-    } catch (error) {
-        console.error('Failed to get MFA status:', error);
-        showMessage('login-message', `Failed to get MFA status: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-async function setupTOTP() {
-    try {
-        const response = await apiRequest('/mfa/totp/setup', {
-            method: 'POST',
-            body: JSON.stringify({})
-        });
-
-        // Display QR code (using a QR code generator service)
-        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(response.qr_code_url)}`;
-        
-        const qrContainer = document.getElementById('qr-code-container');
-        qrContainer.innerHTML = `<img src="${qrCodeUrl}" alt="QR Code">`;
-        
-        // Display secret and backup codes
-        document.getElementById('totp-secret').textContent = response.secret;
-        
-        const backupCodesList = document.getElementById('backup-codes');
-        backupCodesList.innerHTML = '';
-        response.backup_codes.forEach(code => {
-            const li = document.createElement('li');
-            li.textContent = code;
-            backupCodesList.appendChild(li);
-        });
-
-        // Show the setup result
-        document.getElementById('totp-setup-result').style.display = 'block';
-        
-        showMessage('totp-setup-message', 'TOTP setup initiated. Scan the QR code with your authenticator app.', 'info');
-        
-        return response;
-    } catch (error) {
-        showMessage('totp-setup-message', `Failed to setup TOTP: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-async function verifyTOTPSetup(code) {
-    try {
-        const response = await apiRequest('/mfa/totp/verify', {
-            method: 'POST',
-            body: JSON.stringify({ code })
-        });
-
-        showMessage('totp-setup-message', 'TOTP enabled successfully!', 'success');
-        
-        // Hide setup result and refresh status
-        document.getElementById('totp-setup-result').style.display = 'none';
-        await getMFAStatus();
-        
-        return response;
-    } catch (error) {
-        showMessage('totp-setup-message', `Failed to verify TOTP: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-async function disableTOTP(code) {
-    try {
-        const response = await apiRequest('/mfa/totp/disable', {
-            method: 'POST',
-            body: JSON.stringify({ code })
-        });
-
-        showMessage('totp-management-message', 'TOTP disabled successfully!', 'success');
-        
-        // Clear the input and refresh status
-        document.getElementById('totp-disable-code').value = '';
-        await getMFAStatus();
-        
-        return response;
-    } catch (error) {
-        showMessage('totp-management-message', `Failed to disable TOTP: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-async function setupEmailMFA() {
-    try {
-        const response = await apiRequest('/mfa/email/setup', {
-            method: 'POST',
-            body: JSON.stringify({})
-        });
-
-        showMessage('email-mfa-message', 'Email MFA enabled successfully!', 'success');
-        await getMFAStatus();
-        
-        return response;
-    } catch (error) {
-        showMessage('email-mfa-message', `Failed to setup email MFA: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-async function disableEmailMFA() {
-    try {
-        const response = await apiRequest('/mfa/email/disable', {
-            method: 'POST',
-            body: JSON.stringify({})
-        });
-
-        showMessage('email-mfa-message', 'Email MFA disabled successfully!', 'success');
-        await getMFAStatus();
-        
-        return response;
-    } catch (error) {
-        showMessage('email-mfa-message', `Failed to disable email MFA: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-async function sendEmailCode(email) {
-    try {
-        const response = await apiRequest('/mfa/email/send-code', {
-            method: 'POST',
-            body: JSON.stringify({ email })
-        });
-
-        showMessage('email-mfa-message', response.message, 'info');
-        
-        return response;
-    } catch (error) {
-        showMessage('email-mfa-message', `Failed to send email code: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-async function verifyEmailCode(code) {
-    try {
-        const response = await apiRequest('/mfa/email/verify', {
-            method: 'POST',
-            body: JSON.stringify({ code })
-        });
-
-        showMessage('email-mfa-message', 'Email code verified successfully!', 'success');
-        
-        // Clear the input
-        document.getElementById('email-verify-code').value = '';
-        
-        return response;
-    } catch (error) {
-        showMessage('email-mfa-message', `Failed to verify email code: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-async function verifyBackupCode(code) {
-    try {
-        const response = await apiRequest('/mfa/backup/verify', {
-            method: 'POST',
-            body: JSON.stringify({ code })
-        });
-
-        showMessage('backup-message', 'Backup code verified successfully!', 'success');
-        
-        // Clear the input
-        document.getElementById('backup-code').value = '';
-        
-        return response;
-    } catch (error) {
-        showMessage('backup-message', `Failed to verify backup code: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-// OAuth functions
-async function initiateGoogleOAuth() {
-    try {
-        // Get the OAuth URL from the backend
-        const redirectUri = `${window.location.origin}/oauth-callback.html`;
-        const response = await apiRequest('/auth/google/auth-url', {
-            method: 'POST',
-            body: JSON.stringify({ redirect_uri: redirectUri })
-        });
-
-        // Store the redirect URI for the callback
-        localStorage.setItem('oauth_redirect_uri', redirectUri);
-        
-        // Redirect to Google OAuth
-        window.location.href = response.auth_url;
-        
-    } catch (error) {
-        throw error;
-    }
-}
-
-async function handleGoogleOAuthCallback(code) {
-    try {
-        const redirectUri = localStorage.getItem('oauth_redirect_uri') || `${window.location.origin}/oauth-callback.html`;
-        
-        const response = await apiRequest('/auth/google/callback', {
-            method: 'POST',
-            body: JSON.stringify({ 
-                code: code, 
-                redirect_uri: redirectUri 
-            })
-        });
-
-        // Clear the stored redirect URI
-        localStorage.removeItem('oauth_redirect_uri');
-
-        if (response.requires_mfa) {
-            // MFA is required, store temporary token and show MFA verification
-            tempToken = response.temp_token;
-            mfaType = response.mfa_type;
-            currentUser = response.user;
-            
-            // Show MFA verification form
-            showMFAVerification();
-            return response;
-        } else {
-            // No MFA required, proceed with normal login
-            authToken = response.access_token;
-            currentUser = response.user;
-            
-            // Store token in localStorage
-            localStorage.setItem('authToken', authToken);
-            
-            // Complete login
-            onLoginSuccess();
-            return response;
-        }
-        
-    } catch (error) {
-        throw error;
-    }
-}
-
-// Check for OAuth callback on page load
-function checkForOAuthCallback() {
+// Check for email verification token in URL
+function checkForVerificationToken() {
     const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const error = urlParams.get('error');
+    const token = urlParams.get('token');
     
-    if (error) {
-        showMessage('login-message', `OAuth error: ${error}`, 'error');
-        return;
-    }
-    
-    if (code) {
-        // Handle OAuth callback
-        handleGoogleOAuthCallback(code).catch(error => {
-            console.error('OAuth callback failed:', error);
-            showMessage('login-message', `OAuth callback failed: ${error.message}`, 'error');
-        });
+    if (token) {
+        // Show email verification section
+        switchToEmailVerification();
+        
+        // Auto-verify the email
+        verifyEmailFromURL(token);
     }
 }
 
-// Event handlers
-document.addEventListener('DOMContentLoaded', function() {
-    // Check for OAuth callback first
-    checkForOAuthCallback();
-    
-    // Check if user is already logged in
-    const savedToken = localStorage.getItem('authToken');
-    if (savedToken) {
-        authToken = savedToken;
-        onLoginSuccess();
+async function verifyEmailFromURL(token) {
+    try {
+        const result = await verifyEmail(token);
+        showMessage('email-verification-message', result.message, 'success');
+        
+        // Clear the token from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Show login button
+        document.getElementById('email-verification-login-btn').style.display = 'inline-block';
+        
+    } catch (error) {
+        showMessage('email-verification-message', `Verification failed: ${error.message}`, 'error');
     }
+}
 
-    // Tab switching
-    document.getElementById('login-tab').addEventListener('click', switchToLogin);
-    document.getElementById('register-tab').addEventListener('click', switchToRegister);
-
-    // Registration form
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+    // Check for verification token in URL
+    checkForVerificationToken();
+    
+    // Navigation buttons
+    document.getElementById('show-login').addEventListener('click', switchToLogin);
+    document.getElementById('show-register').addEventListener('click', switchToRegister);
+    document.getElementById('logout-btn').addEventListener('click', logout);
+    document.getElementById('email-verification-login-btn').addEventListener('click', switchToLogin);
+    
+    // Register form
     document.getElementById('register-form').addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -568,14 +370,12 @@ document.addEventListener('DOMContentLoaded', function() {
             full_name: document.getElementById('register-full-name').value,
             email: document.getElementById('register-email').value,
             phone: document.getElementById('register-phone').value,
-            user_type: document.getElementById('register-user-type').value,
             password: document.getElementById('register-password').value,
-            confirm_password: document.getElementById('register-confirm-password').value,
-            language_preference: 'en',
-            currency_preference: 'USD'
+            user_type: document.getElementById('register-user-type').value
         };
         
         const submitButton = this.querySelector('button[type="submit"]');
+        submitButton.setAttribute('data-original-text', submitButton.textContent);
         
         setLoading(submitButton, true);
         hideMessage('register-message');
@@ -589,14 +389,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Register user
-            await register(formData);
-            showMessage('register-message', 'Registration successful! You can now login.', 'success');
+            const result = await register(formData);
+            showMessage('register-message', result.message || 'Registration successful! Please check your email to verify your account before logging in.', 'success');
             
             // Clear form and switch to login
             this.reset();
             setTimeout(() => {
                 switchToLogin();
-            }, 2000);
+            }, 3000);
             
         } catch (error) {
             showMessage('register-message', `Registration failed: ${error.message}`, 'error');
@@ -620,10 +420,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await login(email, password);
             
             if (response.requires_mfa) {
-                // MFA verification will be handled by showMFAVerification()
-                showMessage('login-message', 'MFA verification required. Please enter your code.', 'info');
+                // Store temp token for MFA verification
+                currentUser = { temp_token: response.temp_token, mfa_type: response.mfa_type };
+                switchToMFA();
+                showMessage('mfa-message', `Please enter your ${response.mfa_type.toUpperCase()} code.`, 'info');
             } else {
                 // Normal login success
+                currentUser = response;
                 onLoginSuccess();
             }
         } catch (error) {
@@ -633,216 +436,131 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // MFA verification button
-    document.getElementById('mfa-verify-btn').addEventListener('click', async function() {
-        const code = document.getElementById('mfa-verification-code').value;
-        if (!code || code.length !== 6) {
-            showMessage('mfa-verification-message', 'Please enter a valid 6-digit code', 'error');
-            return;
-        }
-
-        const rememberDevice = document.getElementById('remember-device-checkbox').checked;
-
-        const button = this;
-        setLoading(button, true);
-        hideMessage('mfa-verification-message');
+    // MFA verification form
+    document.getElementById('mfa-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const code = document.getElementById('mfa-code').value;
+        const rememberDevice = document.getElementById('remember-device').checked;
+        const submitButton = this.querySelector('button[type="submit"]');
+        
+        setLoading(submitButton, true);
+        hideMessage('mfa-message');
         
         try {
-            await verifyMFALogin(code, rememberDevice);
+            const result = await verifyMFA(currentUser.temp_token, code, rememberDevice);
+            currentUser = result;
             onLoginSuccess();
         } catch (error) {
-            showMessage('mfa-verification-message', `MFA verification failed: ${error.message}`, 'error');
+            showMessage('mfa-message', `MFA verification failed: ${error.message}`, 'error');
         } finally {
-            setLoading(button, false);
+            setLoading(submitButton, false);
         }
     });
 
-    // Back to login button
-    document.getElementById('mfa-back-to-login-btn').addEventListener('click', function() {
-        hideMFAVerification();
-        hideMessage('login-message');
-    });
-
-    // Google OAuth login button
-    document.getElementById('google-login-btn').addEventListener('click', async function() {
-        const button = this;
-        setLoading(button, true);
+    // MFA setup form
+    document.getElementById('mfa-setup-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const submitButton = this.querySelector('button[type="submit"]');
+        setLoading(submitButton, true);
+        hideMessage('mfa-setup-message');
+        
         try {
-            await initiateGoogleOAuth();
+            const result = await setupTOTP();
+            
+            // Show QR code and secret
+            document.getElementById('qr-code').src = result.qr_code_url;
+            document.getElementById('totp-secret').textContent = result.secret;
+            document.getElementById('backup-codes').textContent = result.backup_codes.join(', ');
+            
+            // Show verification step
+            document.getElementById('mfa-setup-step1').style.display = 'none';
+            document.getElementById('mfa-setup-step2').style.display = 'block';
+            
         } catch (error) {
-            console.error('Failed to initiate Google OAuth:', error);
-            showMessage('login-message', `Google OAuth failed: ${error.message}`, 'error');
+            showMessage('mfa-setup-message', `TOTP setup failed: ${error.message}`, 'error');
         } finally {
-            setLoading(button, false);
+            setLoading(submitButton, false);
         }
     });
 
-    // Logout button
-    document.getElementById('logout-btn').addEventListener('click', logout);
-
-    // Refresh status button
-    document.getElementById('refresh-status-btn').addEventListener('click', async function() {
-        const button = this;
-        setLoading(button, true);
-        try {
-            await getMFAStatus();
-        } catch (error) {
-            console.error('Failed to refresh status:', error);
-        } finally {
-            setLoading(button, false);
-        }
-    });
-
-    // TOTP setup button
-    document.getElementById('setup-totp-btn').addEventListener('click', async function() {
-        const button = this;
-        setLoading(button, true);
-        try {
-            await setupTOTP();
-        } catch (error) {
-            console.error('Failed to setup TOTP:', error);
-        } finally {
-            setLoading(button, false);
-        }
-    });
-
-    // TOTP verify button
-    document.getElementById('verify-totp-btn').addEventListener('click', async function() {
+    // TOTP verification form
+    document.getElementById('totp-verify-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
         const code = document.getElementById('totp-verify-code').value;
-        if (!code || code.length !== 6) {
-            showMessage('totp-setup-message', 'Please enter a valid 6-digit code', 'error');
-            return;
-        }
-
-        const button = this;
-        setLoading(button, true);
+        const submitButton = this.querySelector('button[type="submit"]');
+        
+        setLoading(submitButton, true);
+        hideMessage('totp-verify-message');
+        
         try {
             await verifyTOTPSetup(code);
+            showMessage('totp-verify-message', 'TOTP enabled successfully!', 'success');
+            
+            // Update MFA status
+            updateMFAStatus();
+            
         } catch (error) {
-            console.error('Failed to verify TOTP:', error);
+            showMessage('totp-verify-message', `TOTP verification failed: ${error.message}`, 'error');
         } finally {
-            setLoading(button, false);
+            setLoading(submitButton, false);
         }
     });
 
-    // TOTP disable button
-    document.getElementById('disable-totp-btn').addEventListener('click', async function() {
-        const code = document.getElementById('totp-disable-code').value;
-        if (!code || code.length !== 6) {
-            showMessage('totp-management-message', 'Please enter a valid 6-digit code', 'error');
-            return;
-        }
-
-        const button = this;
-        setLoading(button, true);
+    // Resend verification email form
+    document.getElementById('resend-verification-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const email = document.getElementById('resend-email').value;
+        const submitButton = this.querySelector('button[type="submit"]');
+        
+        setLoading(submitButton, true);
+        hideMessage('resend-verification-message');
+        
         try {
-            await disableTOTP(code);
+            const result = await resendVerificationEmail(email);
+            showMessage('resend-verification-message', result.message, 'success');
         } catch (error) {
-            console.error('Failed to disable TOTP:', error);
+            showMessage('resend-verification-message', `Failed to resend verification email: ${error.message}`, 'error');
         } finally {
-            setLoading(button, false);
+            setLoading(submitButton, false);
         }
     });
 
-    // Email MFA setup button
-    document.getElementById('setup-email-mfa-btn').addEventListener('click', async function() {
-        const button = this;
-        setLoading(button, true);
+    // MFA status buttons
+    document.getElementById('check-mfa-status').addEventListener('click', updateMFAStatus);
+    document.getElementById('setup-totp-btn').addEventListener('click', () => {
+        document.getElementById('mfa-setup-step1').style.display = 'block';
+        document.getElementById('mfa-setup-step2').style.display = 'none';
+        document.getElementById('mfa-setup-section').style.display = 'block';
+    });
+    document.getElementById('disable-totp-btn').addEventListener('click', async () => {
         try {
-            await setupEmailMFA();
+            await disableTOTP();
+            showMessage('dashboard-message', 'TOTP disabled successfully!', 'success');
+            updateMFAStatus();
         } catch (error) {
-            console.error('Failed to setup email MFA:', error);
-        } finally {
-            setLoading(button, false);
+            showMessage('dashboard-message', `Failed to disable TOTP: ${error.message}`, 'error');
         }
-    });
-
-    // Email MFA disable button
-    document.getElementById('disable-email-mfa-btn').addEventListener('click', async function() {
-        const button = this;
-        setLoading(button, true);
-        try {
-            await disableEmailMFA();
-        } catch (error) {
-            console.error('Failed to disable email MFA:', error);
-        } finally {
-            setLoading(button, false);
-        }
-    });
-
-    // Send email code button
-    document.getElementById('send-email-code-btn').addEventListener('click', async function() {
-        const email = document.getElementById('email-mfa-email').value;
-        if (!email) {
-            showMessage('email-mfa-message', 'Please enter an email address', 'error');
-            return;
-        }
-
-        const button = this;
-        setLoading(button, true);
-        try {
-            await sendEmailCode(email);
-        } catch (error) {
-            console.error('Failed to send email code:', error);
-        } finally {
-            setLoading(button, false);
-        }
-    });
-
-    // Verify email code button
-    document.getElementById('verify-email-btn').addEventListener('click', async function() {
-        const code = document.getElementById('email-verify-code').value;
-        if (!code || code.length !== 6) {
-            showMessage('email-mfa-message', 'Please enter a valid 6-digit code', 'error');
-            return;
-        }
-
-        const button = this;
-        setLoading(button, true);
-        try {
-            await verifyEmailCode(code);
-        } catch (error) {
-            console.error('Failed to verify email code:', error);
-        } finally {
-            setLoading(button, false);
-        }
-    });
-
-    // Verify backup code button
-    document.getElementById('verify-backup-btn').addEventListener('click', async function() {
-        const code = document.getElementById('backup-code').value;
-        if (!code || code.length !== 8) {
-            showMessage('backup-message', 'Please enter a valid 8-digit backup code', 'error');
-            return;
-        }
-
-        const button = this;
-        setLoading(button, true);
-        try {
-            await verifyBackupCode(code);
-        } catch (error) {
-            console.error('Failed to verify backup code:', error);
-        } finally {
-            setLoading(button, false);
-        }
-    });
-
-    // Store original button text for loading states
-    document.querySelectorAll('button').forEach(button => {
-        button.setAttribute('data-original-text', button.textContent);
     });
 });
 
-function onLoginSuccess() {
-    // Hide auth section, show others
-    hideSection('auth-section');
-    showSection('mfa-status-section');
-    showSection('totp-setup-section');
-    showSection('totp-management-section');
-    showSection('email-mfa-section');
-    showSection('backup-codes-section');
-    showSection('logout-section');
-    
-    // Get initial MFA status
-    getMFAStatus();
+async function updateMFAStatus() {
+    try {
+        const status = await getMFAStatus();
+        const statusElement = document.getElementById('mfa-status');
+        
+        if (statusElement) {
+            statusElement.innerHTML = `
+                <h4>MFA Status:</h4>
+                <p>MFA Enabled: ${status.mfa_enabled ? 'Yes' : 'No'}</p>
+                <p>TOTP Enabled: ${status.totp_enabled ? 'Yes' : 'No'}</p>
+                <p>Email MFA Enabled: ${status.email_mfa_enabled ? 'Yes' : 'No'}</p>
+            `;
+        }
+    } catch (error) {
+        console.error('Failed to get MFA status:', error);
+    }
 } 

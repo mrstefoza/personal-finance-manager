@@ -9,6 +9,7 @@ from app.schemas.oauth import GoogleAuthRequest, GoogleAuthResponse, GoogleCallb
 from app.api.deps import get_database, get_current_user
 from app.utils.jwt import JWTManager
 from uuid import UUID
+from datetime import datetime
 
 router = APIRouter()
 
@@ -18,11 +19,16 @@ async def register(
     user: UserCreate,
     db: Database = Depends(get_database)
 ):
-    """Register a new user"""
+    """Register a new user with email verification"""
     try:
         user_service = UserService(db)
         new_user = await user_service.create_user(user)
-        return new_user
+        
+        # Return user data but inform about email verification requirement
+        return {
+            **new_user.dict(),
+            "message": "Registration successful! Please check your email to verify your account before logging in."
+        }
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -46,22 +52,16 @@ async def login(
         mfa_service = MFAService(db)
         
         # Authenticate user
-        user = await user_service.authenticate_user(
-            user_credentials.email, 
-            user_credentials.password
-        )
-        
+        user = await user_service.authenticate_user(user_credentials.email, user_credentials.password)
+        print(f"DEBUG: After authenticate_user, user is None: {user is None}")
         if not user:
-            # Increment failed attempts for the user
-            user_by_email = await user_service.get_user_by_email(user_credentials.email)
-            if user_by_email:
-                await user_service.increment_failed_login_attempts(user_by_email["id"])
-            
+            print("DEBUG: Raising 401 for invalid credentials")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
             )
         
+        print(f"DEBUG: About to update last login for user id: {user['id']}")
         # Update last login
         await user_service.update_last_login(user["id"])
         
@@ -110,10 +110,10 @@ async def login(
                 refresh_token=tokens["refresh_token"],
                 token_type=tokens["token_type"]
             )
-        
+            
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
     except HTTPException:
@@ -212,34 +212,36 @@ async def verify_mfa_login(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
-    token_request: RefreshTokenRequest,
+    refresh_request: RefreshTokenRequest,
     db: Database = Depends(get_database)
 ):
     """Refresh access token using refresh token"""
     try:
         # Verify refresh token
-        payload = JWTManager.verify_token(token_request.refresh_token, "refresh")
-        user_id = payload.get("sub")
+        payload = JWTManager.verify_token(refresh_request.refresh_token, "refresh")
+        user_id = UUID(payload.get("sub"))
         email = payload.get("email")
         
-        if not user_id or not email:
+        # Check if refresh token exists in database
+        query = """
+        SELECT * FROM user_sessions 
+        WHERE user_id = $1 AND refresh_token_hash = $2 AND is_active = TRUE AND expires_at > $3
+        """
+        
+        # Hash the refresh token for comparison
+        import hashlib
+        token_hash = hashlib.sha256(refresh_request.refresh_token.encode()).hexdigest()
+        
+        session = await db.fetchrow(query, user_id, token_hash, datetime.utcnow())
+        
+        if not session:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token"
             )
         
-        # Verify user still exists and is active
-        user_service = UserService(db)
-        user = await user_service.get_user_by_id(UUID(user_id))
-        
-        if not user or user["profile_status"] != "active":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found or inactive"
-            )
-        
         # Generate new tokens
-        tokens = JWTManager.create_user_tokens(user["id"], user["email"])
+        tokens = JWTManager.create_user_tokens(user_id, email)
         
         return tokens
         
@@ -252,126 +254,121 @@ async def refresh_token(
         )
 
 
-@router.post("/logout")
-async def logout(
-    db: Database = Depends(get_database)
-):
-    """Logout user and revoke tokens"""
-    # TODO: Implement logout logic (revoke refresh tokens)
-    # For now, just return success - client should delete tokens
-    return {"message": "User logged out successfully"}
-
-
 @router.post("/verify-email")
 async def verify_email(
+    token: str,
     db: Database = Depends(get_database)
 ):
-    """Verify user email"""
-    # TODO: Implement email verification
-    return {"message": "Email verification endpoint - to be implemented"}
-
-
-@router.post("/forgot-password")
-async def forgot_password(
-    db: Database = Depends(get_database)
-):
-    """Request password reset"""
-    # TODO: Implement password reset request
-    return {"message": "Password reset request endpoint - to be implemented"}
-
-
-@router.post("/reset-password")
-async def reset_password(
-    db: Database = Depends(get_database)
-):
-    """Reset password with token"""
-    # TODO: Implement password reset
-    return {"message": "Password reset endpoint - to be implemented"} 
-
-# Google OAuth Endpoints
-
-@router.post("/google/auth-url", response_model=GoogleAuthResponse)
-async def get_google_auth_url(
-    request: GoogleAuthRequest,
-    db: Database = Depends(get_database)
-):
-    """Get Google OAuth authorization URL"""
+    """Verify user email with token"""
     try:
-        oauth_service = OAuthService(db)
-        auth_url = oauth_service.get_google_auth_url(request.redirect_uri)
+        user_service = UserService(db)
+        success = await user_service.verify_email(token)
         
-        return GoogleAuthResponse(auth_url=auth_url)
-        
+        if success:
+            return {
+                "message": "Email verified successfully! You can now log in to your account.",
+                "verified": True
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email verification failed"
+            )
+            
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate Google OAuth URL"
+            detail="Internal server error"
         )
 
 
+@router.post("/resend-verification")
+async def resend_verification_email(
+    email: str,
+    db: Database = Depends(get_database)
+):
+    """Resend verification email"""
+    try:
+        user_service = UserService(db)
+        success = await user_service.resend_verification_email(email)
+        
+        if success:
+            return {
+                "message": "Verification email sent successfully! Please check your inbox.",
+                "sent": True
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to send verification email"
+            )
+            
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+
+
+# OAuth endpoints (existing code)
+@router.get("/google/login")
+async def google_login():
+    """Initiate Google OAuth login"""
+    oauth_service = OAuthService()
+    auth_url = oauth_service.get_google_auth_url()
+    return {"auth_url": auth_url}
+
+
 @router.post("/google/callback", response_model=OAuthLoginResponse)
-async def google_oauth_callback(
-    request: GoogleCallbackRequest,
+async def google_callback(
+    callback_data: GoogleCallbackRequest,
     db: Database = Depends(get_database)
 ):
     """Handle Google OAuth callback"""
     try:
         oauth_service = OAuthService(db)
-        
-        # Exchange code for tokens
-        token_data = await oauth_service.exchange_code_for_tokens(
-            request.code, 
-            request.redirect_uri
-        )
-        
-        # Get user info from Google
-        google_user_info = await oauth_service.get_google_user_info(
-            token_data["access_token"]
-        )
-        
-        # Handle OAuth login (find/create user, check MFA, etc.)
-        result = await oauth_service.handle_oauth_login(google_user_info)
-        
-        return OAuthLoginResponse(**result)
-        
+        result = await oauth_service.handle_google_callback(callback_data.code)
+        return result
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to complete Google OAuth login"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
         )
 
 
-@router.post("/google/link", response_model=dict)
-async def link_google_account(
-    request: GoogleCallbackRequest,
-    current_user: dict = Depends(get_current_user),
+@router.post("/logout")
+async def logout(
+    refresh_token: str,
     db: Database = Depends(get_database)
 ):
-    """Link Google account to existing user"""
+    """Logout user and revoke refresh token"""
     try:
-        oauth_service = OAuthService(db)
+        # Hash the refresh token
+        import hashlib
+        token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
         
-        # Exchange code for tokens
-        token_data = await oauth_service.exchange_code_for_tokens(
-            request.code, 
-            request.redirect_uri
-        )
+        # Mark session as inactive
+        query = """
+        UPDATE user_sessions 
+        SET is_active = FALSE, updated_at = $1
+        WHERE refresh_token_hash = $2
+        """
+        await db.execute(query, datetime.utcnow(), token_hash)
         
-        # Get user info from Google
-        google_user_info = await oauth_service.get_google_user_info(
-            token_data["access_token"]
-        )
-        
-        # Link Google account to current user
-        await oauth_service.link_google_account(
-            current_user["id"], 
-            google_user_info["id"]
-        )
-        
-        return {"message": "Google account linked successfully"}
+        return {"message": "Logged out successfully"}
         
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to link Google account"
+            detail="Internal server error"
         ) 

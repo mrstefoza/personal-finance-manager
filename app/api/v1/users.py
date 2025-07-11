@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from typing import Optional
 from app.core.database import Database
 from app.services.user_service import UserService
-from app.schemas.user import UserProfile, UserUpdate, UserProfile as UserProfileSchema
+from app.schemas.user import UserResponse, UserUpdate
 from app.api.deps import get_database, get_current_user
 from fastapi.security import HTTPBearer
 
@@ -10,17 +10,17 @@ router = APIRouter()
 security = HTTPBearer()
 
 
-@router.get("/profile", response_model=UserProfileSchema)
+@router.get("/profile", response_model=UserResponse)
 async def get_profile(
     current_user: dict = Depends(get_current_user),
     db: Database = Depends(get_database),
     token: str = Depends(security)
 ):
     """Get current user profile"""
-    return UserProfileSchema(**current_user)
+    return UserResponse(**current_user)
 
 
-@router.put("/profile", response_model=UserProfileSchema)
+@router.put("/profile", response_model=UserResponse)
 async def update_profile(
     profile: UserUpdate,
     current_user: dict = Depends(get_current_user),
@@ -38,7 +38,7 @@ async def update_profile(
                 detail="User not found"
             )
         
-        return UserProfileSchema(**updated_user)
+        return UserResponse(**updated_user)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

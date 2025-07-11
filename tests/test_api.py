@@ -59,7 +59,7 @@ async def test_register_user_invalid_data(client):
     assert response.status_code == 422
 
 @pytest.mark.asyncio
-async def test_login_user(client):
+async def test_login_user(client, db_session):
     """Test user login"""
     import uuid
     unique_id = str(uuid.uuid4())[:8]
@@ -77,6 +77,12 @@ async def test_login_user(client):
     
     response = await client.post("/api/v1/auth/register", json=user_data)
     assert response.status_code == 201
+    user_id = response.json()["id"]
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
     
     # Login with the user
     login_data = {
@@ -94,7 +100,7 @@ async def test_login_user(client):
     assert data["token_type"] == "bearer"
 
 @pytest.mark.asyncio
-async def test_login_user_invalid_credentials(client):
+async def test_login_user_invalid_credentials(client, db_session):
     """Test user login with invalid credentials"""
     import uuid
     unique_id = str(uuid.uuid4())[:8]
@@ -112,6 +118,12 @@ async def test_login_user_invalid_credentials(client):
     
     response = await client.post("/api/v1/auth/register", json=user_data)
     assert response.status_code == 201
+    user_id = response.json()["id"]
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
     
     # Then try to login with wrong password
     login_data = {

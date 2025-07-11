@@ -13,17 +13,10 @@ class EmailService:
         self.smtp_port = settings.SMTP_PORT
         self.smtp_user = settings.SMTP_USER
         self.smtp_password = settings.SMTP_PASSWORD
-        self.from_email = settings.SMTP_USER or "noreply@pfm.com"
+        self.from_email = settings.SMTP_USER or "noreply@personalfinancemanager.com"
     
-    async def send_email(self, to_email: str, subject: str, html_content: str, text_content: str = None) -> bool:
-        """Send an email"""
-        if not self.smtp_host:
-            # In development, just log the email instead of sending
-            print(f"EMAIL (DEV MODE) - To: {to_email}")
-            print(f"EMAIL (DEV MODE) - Subject: {subject}")
-            print(f"EMAIL (DEV MODE) - Content: {html_content}")
-            return True
-        
+    async def send_email(self, to_email: str, subject: str, html_content: str, text_content: str) -> bool:
+        """Send an email using SMTP"""
         try:
             # Create message
             msg = MIMEMultipart('alternative')
@@ -31,33 +24,118 @@ class EmailService:
             msg['From'] = self.from_email
             msg['To'] = to_email
             
-            # Add text and HTML parts
-            if text_content:
-                text_part = MIMEText(text_content, 'plain')
-                msg.attach(text_part)
-            
+            # Attach parts
+            text_part = MIMEText(text_content, 'plain')
             html_part = MIMEText(html_content, 'html')
+            
+            msg.attach(text_part)
             msg.attach(html_part)
             
             # Send email
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                # Only use TLS and authentication if credentials are provided
-                if self.smtp_user and self.smtp_password:
+            if self.smtp_host and self.smtp_user and self.smtp_password:
+                # Use configured SMTP
+                with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
                     server.starttls()
                     server.login(self.smtp_user, self.smtp_password)
-                server.send_message(msg)
+                    server.send_message(msg)
+            else:
+                # In development, just log the email
+                print(f"=== EMAIL WOULD BE SENT ===")
+                print(f"To: {to_email}")
+                print(f"Subject: {subject}")
+                print(f"Text: {text_content}")
+                print(f"HTML: {html_content}")
+                print(f"=== END EMAIL ===")
             
             return True
             
         except Exception as e:
-            print(f"Failed to send email: {e}")
+            print(f"Failed to send email: {str(e)}")
             return False
+    
+    async def send_verification_email(self, to_email: str, user_name: str, verification_token: str) -> bool:
+        """Send email verification email"""
+        subject = "Verify Your Email - Personal Finance Manager"
+        
+        # Create verification URL (in production, this would be your frontend URL)
+        verification_url = f"http://localhost:3000/verify-email?token={verification_token}"
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Verify Your Email</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #007bff; color: white; padding: 20px; text-align: center; border-radius: 5px; }}
+                .button {{ display: inline-block; background-color: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+                .footer {{ margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; font-size: 14px; color: #6c757d; }}
+                .code {{ background-color: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 16px; text-align: center; margin: 20px 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🔐 Verify Your Email Address</h1>
+                </div>
+                
+                <p>Hello {user_name},</p>
+                
+                <p>Thank you for registering with Personal Finance Manager! To complete your registration, please verify your email address by clicking the button below:</p>
+                
+                <div style="text-align: center;">
+                    <a href="{verification_url}" class="button">Verify Email Address</a>
+                </div>
+                
+                <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+                <div class="code">{verification_url}</div>
+                
+                <p><strong>Important:</strong></p>
+                <ul>
+                    <li>This verification link will expire in 24 hours</li>
+                    <li>You won't be able to log in until you verify your email</li>
+                    <li>If you didn't create this account, please ignore this email</li>
+                </ul>
+                
+                <p>If you have any questions, please contact our support team.</p>
+                
+                <div class="footer">
+                    <p>This is an automated message from Personal Finance Manager. Please do not reply to this email.</p>
+                    <p>If you're having trouble, you can also verify your email by visiting our website and entering the verification code manually.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Text content
+        text_content = f"""
+Verify Your Email Address
+
+Hello {user_name},
+
+Thank you for registering with Personal Finance Manager! To complete your registration, please verify your email address.
+
+Verification Link: {verification_url}
+
+Important:
+- This verification link will expire in 24 hours
+- You won't be able to log in until you verify your email
+- If you didn't create this account, please ignore this email
+
+If you have any questions, please contact our support team.
+
+This is an automated message from Personal Finance Manager. Please do not reply to this email.
+        """
+        
+        return await self.send_email(to_email, subject, html_content, text_content)
     
     async def send_mfa_code(self, to_email: str, code: str, user_name: str = None) -> bool:
         """Send MFA verification code email"""
-        subject = "Your MFA Verification Code"
+        subject = "MFA Verification Code - Personal Finance Manager"
         
-        # HTML content
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -67,8 +145,8 @@ class EmailService:
             <style>
                 body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
                 .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .header {{ background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 5px; }}
-                .code {{ font-size: 32px; font-weight: bold; text-align: center; padding: 20px; background-color: #e9ecef; border-radius: 5px; margin: 20px 0; letter-spacing: 5px; }}
+                .header {{ background-color: #ffc107; color: #333; padding: 20px; text-align: center; border-radius: 5px; }}
+                .code {{ background-color: #f8f9fa; padding: 20px; border-radius: 5px; font-family: monospace; font-size: 24px; text-align: center; margin: 20px 0; letter-spacing: 5px; }}
                 .footer {{ margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; font-size: 14px; color: #6c757d; }}
             </style>
         </head>
@@ -78,15 +156,19 @@ class EmailService:
                     <h1>🔐 MFA Verification Code</h1>
                 </div>
                 
-                <p>Hello{f" {user_name}" if user_name else ""},</p>
+                <p>Hello{user_name if user_name else ""},</p>
                 
                 <p>You requested a verification code for your Personal Finance Manager account.</p>
                 
+                <p>Your verification code is:</p>
                 <div class="code">{code}</div>
                 
-                <p><strong>This code will expire in 5 minutes.</strong></p>
-                
-                <p>If you didn't request this code, please ignore this email and consider changing your password.</p>
+                <p><strong>Important:</strong></p>
+                <ul>
+                    <li>This code will expire in 5 minutes</li>
+                    <li>Never share this code with anyone</li>
+                    <li>If you didn't request this code, please change your password immediately</li>
+                </ul>
                 
                 <div class="footer">
                     <p>This is an automated message from Personal Finance Manager. Please do not reply to this email.</p>
@@ -140,19 +222,19 @@ This is an automated message from Personal Finance Manager. Please do not reply 
                 
                 <p>Hello {user_name},</p>
                 
-                <p>Thank you for joining Personal Finance Manager! We're excited to help you take control of your finances.</p>
+                <p>Welcome to Personal Finance Manager! Your account has been successfully created and verified.</p>
                 
-                <h3>What you can do now:</h3>
+                <p>You can now:</p>
                 <ul>
-                    <li>Set up your profile and preferences</li>
-                    <li>Enable two-factor authentication for enhanced security</li>
-                    <li>Start tracking your income and expenses</li>
-                    <li>Create budgets and financial goals</li>
+                    <li>Log in to your account</li>
+                    <li>Set up multi-factor authentication for enhanced security</li>
+                    <li>Start managing your personal finances</li>
+                    <li>Explore our features and tools</li>
                 </ul>
                 
-                <p>If you have any questions, feel free to reach out to our support team.</p>
+                <p>If you have any questions or need help getting started, please don't hesitate to contact our support team.</p>
                 
-                <p>Best regards,<br>The Personal Finance Manager Team</p>
+                <p>Thank you for choosing Personal Finance Manager!</p>
                 
                 <div class="footer">
                     <p>This is an automated message from Personal Finance Manager. Please do not reply to this email.</p>
@@ -162,23 +244,23 @@ This is an automated message from Personal Finance Manager. Please do not reply 
         </html>
         """
         
+        # Text content
         text_content = f"""
 Welcome to Personal Finance Manager!
 
 Hello {user_name},
 
-Thank you for joining Personal Finance Manager! We're excited to help you take control of your finances.
+Welcome to Personal Finance Manager! Your account has been successfully created and verified.
 
-What you can do now:
-- Set up your profile and preferences
-- Enable two-factor authentication for enhanced security
-- Start tracking your income and expenses
-- Create budgets and financial goals
+You can now:
+- Log in to your account
+- Set up multi-factor authentication for enhanced security
+- Start managing your personal finances
+- Explore our features and tools
 
-If you have any questions, feel free to reach out to our support team.
+If you have any questions or need help getting started, please don't hesitate to contact our support team.
 
-Best regards,
-The Personal Finance Manager Team
+Thank you for choosing Personal Finance Manager!
 
 This is an automated message from Personal Finance Manager. Please do not reply to this email.
         """

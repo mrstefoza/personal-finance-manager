@@ -4,7 +4,7 @@ from httpx import AsyncClient
 from app.main import app
 
 @pytest.mark.asyncio
-async def test_complete_auth_flow(client):
+async def test_complete_auth_flow(client, db_session):
     """Test complete authentication flow: register -> login -> get profile"""
     import uuid
     unique_id = str(uuid.uuid4())[:8]
@@ -22,6 +22,12 @@ async def test_complete_auth_flow(client):
     
     response = await client.post("/api/v1/auth/register", json=user_data)
     assert response.status_code == 201
+    user_id = response.json()["id"]
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
     
     registered_user = response.json()
     assert registered_user["email"] == user_data["email"]
@@ -49,7 +55,7 @@ async def test_complete_auth_flow(client):
     assert profile["full_name"] == user_data["full_name"]
 
 @pytest.mark.asyncio
-async def test_complete_mfa_flow(client):
+async def test_complete_mfa_flow(client, db_session):
     """Test complete MFA flow: register -> login -> setup TOTP -> verify -> disable"""
     import uuid
     unique_id = str(uuid.uuid4())[:8]
@@ -67,6 +73,12 @@ async def test_complete_mfa_flow(client):
 
     response = await client.post("/api/v1/auth/register", json=user_data)
     assert response.status_code == 201
+    user_id = response.json()["id"]
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
 
     login_data = {
         "email": f"mfa_{unique_id}@example.com",
@@ -127,7 +139,7 @@ async def test_complete_mfa_flow(client):
     assert status["backup_codes_remaining"] == 0
 
 @pytest.mark.asyncio
-async def test_backup_codes_flow(client):
+async def test_backup_codes_flow(client, db_session):
     """Test backup codes flow: setup TOTP -> use backup code -> verify remaining"""
     import uuid
     unique_id = str(uuid.uuid4())[:8]
@@ -145,6 +157,12 @@ async def test_backup_codes_flow(client):
 
     response = await client.post("/api/v1/auth/register", json=user_data)
     assert response.status_code == 201
+    user_id = response.json()["id"]
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
 
     login_data = {
         "email": f"backup_{unique_id}@example.com",
@@ -188,7 +206,7 @@ async def test_backup_codes_flow(client):
     assert response.status_code == 400
 
 @pytest.mark.asyncio
-async def test_mfa_login_flow(client):
+async def test_mfa_login_flow(client, db_session):
     """Test MFA login flow: register -> setup TOTP -> login with MFA"""
     import uuid
     unique_id = str(uuid.uuid4())[:8]
@@ -206,6 +224,12 @@ async def test_mfa_login_flow(client):
 
     response = await client.post("/api/v1/auth/register", json=user_data)
     assert response.status_code == 201
+    user_id = response.json()["id"]
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
 
     login_data = {
         "email": f"mfa_login_{unique_id}@example.com",

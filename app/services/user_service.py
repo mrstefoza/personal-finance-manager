@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from passlib.context import CryptContext
 from app.core.database import Database
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
+from app.services.email_service import EmailService
 
 
 # Password hashing context
@@ -15,6 +16,7 @@ class UserService:
     
     def __init__(self, db: Database):
         self.db = db
+        self.email_service = EmailService()
     
     def hash_password(self, password: str) -> str:
         """Hash a password using bcrypt"""
@@ -24,8 +26,12 @@ class UserService:
         """Verify a password against its hash"""
         return pwd_context.verify(plain_password, hashed_password)
     
+    def generate_verification_token(self) -> str:
+        """Generate a secure verification token"""
+        return str(uuid.uuid4())
+    
     async def create_user(self, user_data) -> UserResponse:
-        """Create a new user in the database"""
+        """Create a new user in the database with email verification"""
         # Convert dict to UserCreate if needed
         if isinstance(user_data, dict):
             user_data = UserCreate(**user_data)
@@ -42,13 +48,18 @@ class UserService:
         # Hash password
         hashed_password = self.hash_password(user_data.password)
         
-        # Create user
+        # Generate email verification token
+        verification_token = self.generate_verification_token()
+        verification_expires = datetime.utcnow() + timedelta(hours=24)  # 24 hours expiry
+        
+        # Create user with pending verification status
         user_id = uuid.uuid4()
         query = """
         INSERT INTO users (
             id, full_name, email, phone, user_type, language_preference, 
-            currency_preference, password_hash, profile_status, email_verified
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            currency_preference, password_hash, profile_status, email_verified,
+            email_verification_token, email_verification_expires
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
         """
         
@@ -62,11 +73,89 @@ class UserService:
             user_data.language_preference,
             user_data.currency_preference,
             hashed_password,
-            "active",  # Set to active for testing
-            True       # Set to True for testing
+            "pending_verification",  # Set to pending verification
+            False,                   # Email not verified yet
+            verification_token,
+            verification_expires
+        )
+        
+        # Send verification email
+        await self.email_service.send_verification_email(
+            user_data.email, 
+            user_data.full_name, 
+            verification_token
         )
         
         return UserResponse(**dict(result))
+    
+    async def verify_email(self, token: str) -> bool:
+        """Verify user email with token"""
+        # Find user with this verification token
+        query = """
+        SELECT id, email_verification_expires, email_verified 
+        FROM users 
+        WHERE email_verification_token = $1 AND deleted_at IS NULL
+        """
+        user = await self.db.fetchrow(query, token)
+        
+        if not user:
+            raise ValueError("Invalid verification token")
+        
+        # Check if already verified
+        if user["email_verified"]:
+            raise ValueError("Email is already verified")
+        
+        # Check if token is expired
+        if user["email_verification_expires"] < datetime.utcnow():
+            raise ValueError("Verification token has expired")
+        
+        # Update user to verified status
+        update_query = """
+        UPDATE users 
+        SET email_verified = TRUE, 
+            profile_status = 'active',
+            email_verification_token = NULL,
+            email_verification_expires = NULL,
+            updated_at = $1
+        WHERE id = $2
+        """
+        await self.db.execute(update_query, datetime.utcnow(), user["id"])
+        
+        return True
+    
+    async def resend_verification_email(self, email: str) -> bool:
+        """Resend verification email for existing user"""
+        # Find user by email
+        user = await self.get_user_by_email(email)
+        
+        if not user:
+            raise ValueError("User not found")
+        
+        if user["email_verified"]:
+            raise ValueError("Email is already verified")
+        
+        # Generate new verification token
+        verification_token = self.generate_verification_token()
+        verification_expires = datetime.utcnow() + timedelta(hours=24)
+        
+        # Update user with new token
+        update_query = """
+        UPDATE users 
+        SET email_verification_token = $1,
+            email_verification_expires = $2,
+            updated_at = $3
+        WHERE id = $4
+        """
+        await self.db.execute(update_query, verification_token, verification_expires, datetime.utcnow(), user["id"])
+        
+        # Send verification email
+        await self.email_service.send_verification_email(
+            user["email"], 
+            user["full_name"], 
+            verification_token
+        )
+        
+        return True
     
     async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """Get user by email"""
@@ -88,17 +177,33 @@ class UserService:
     
     async def authenticate_user(self, email: str, password: str) -> Optional[Dict[str, Any]]:
         """Authenticate user with email and password"""
+        print(f"DEBUG: authenticate_user called for email: {email}")
         user = await self.get_user_by_email(email)
         
         if not user:
+            print(f"DEBUG: User not found for email: {email}")
             return None
         
-        if not self.verify_password(password, user["password_hash"]):
+        print(f"DEBUG: User found, password_hash exists: {user.get('password_hash') is not None}")
+        print(f"DEBUG: User profile_status: {user.get('profile_status')}")
+        print(f"DEBUG: User email_verified: {user.get('email_verified')}")
+        
+        try:
+            if not self.verify_password(password, user["password_hash"]):
+                print(f"DEBUG: Password verification failed")
+                return None
+            print(f"DEBUG: Password verification succeeded")
+        except Exception as e:
+            print(f"Password verification exception: {e}")
             return None
         
         # Check if account is locked
         if user["account_locked_until"] and user["account_locked_until"] > datetime.utcnow():
             raise ValueError("Account is temporarily locked")
+        
+        # Check if email is verified
+        if not user["email_verified"]:
+            raise ValueError("Please verify your email address before logging in")
         
         # Check if account is active
         if user["profile_status"] != "active":
@@ -110,10 +215,62 @@ class UserService:
         """Update user's last login timestamp"""
         query = """
         UPDATE users 
-        SET last_login = $1, failed_login_attempts = 0
+        SET last_login = $1, updated_at = $1
         WHERE id = $2
         """
         await self.db.execute(query, datetime.utcnow(), user_id)
+    
+    async def update_user(self, user_id: uuid.UUID, user_data: UserUpdate) -> Optional[UserResponse]:
+        """Update user information"""
+        # Build dynamic update query
+        update_fields = []
+        values = []
+        param_count = 1
+        
+        if user_data.full_name is not None:
+            update_fields.append(f"full_name = ${param_count}")
+            values.append(user_data.full_name)
+            param_count += 1
+        
+        if user_data.phone is not None:
+            update_fields.append(f"phone = ${param_count}")
+            values.append(user_data.phone)
+            param_count += 1
+        
+        if user_data.language_preference is not None:
+            update_fields.append(f"language_preference = ${param_count}")
+            values.append(user_data.language_preference)
+            param_count += 1
+        
+        if user_data.currency_preference is not None:
+            update_fields.append(f"currency_preference = ${param_count}")
+            values.append(user_data.currency_preference)
+            param_count += 1
+        
+        if user_data.profile_picture is not None:
+            update_fields.append(f"profile_picture = ${param_count}")
+            values.append(user_data.profile_picture)
+            param_count += 1
+        
+        if not update_fields:
+            return None
+        
+        # Add updated_at and user_id
+        update_fields.append(f"updated_at = ${param_count}")
+        values.append(datetime.utcnow())
+        param_count += 1
+        
+        values.append(user_id)
+        
+        query = f"""
+        UPDATE users 
+        SET {', '.join(update_fields)}
+        WHERE id = ${param_count} AND deleted_at IS NULL
+        RETURNING *
+        """
+        
+        result = await self.db.fetchrow(query, *values)
+        return UserResponse(**dict(result)) if result else None
     
     async def increment_failed_login_attempts(self, user_id: uuid.UUID) -> None:
         """Increment failed login attempts and lock account if needed"""
