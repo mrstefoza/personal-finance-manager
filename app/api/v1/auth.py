@@ -2,10 +2,10 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from app.core.database import Database
 from app.services.user_service import UserService
 from app.services.mfa_service import MFAService
-from app.services.oauth_service import OAuthService
+from app.services.firebase_service import FirebaseService
 from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, RefreshTokenRequest
 from app.schemas.mfa import LoginResponse, MFALoginVerifyRequest
-from app.schemas.oauth import GoogleAuthRequest, GoogleAuthResponse, GoogleCallbackRequest, OAuthLoginResponse
+from app.schemas.oauth import FirebaseLoginRequest, OAuthLoginResponse
 from app.api.deps import get_database, get_current_user
 from app.utils.jwt import JWTManager
 from uuid import UUID
@@ -321,23 +321,15 @@ async def resend_verification_email(
 
 
 # OAuth endpoints (existing code)
-@router.get("/google/login")
-async def google_login():
-    """Initiate Google OAuth login"""
-    oauth_service = OAuthService()
-    auth_url = oauth_service.get_google_auth_url()
-    return {"auth_url": auth_url}
-
-
-@router.post("/google/callback", response_model=OAuthLoginResponse)
-async def google_callback(
-    callback_data: GoogleCallbackRequest,
+@router.post("/firebase/login", response_model=OAuthLoginResponse)
+async def firebase_login(
+    login_request: FirebaseLoginRequest,
     db: Database = Depends(get_database)
 ):
-    """Handle Google OAuth callback"""
+    """Handle Firebase authentication"""
     try:
-        oauth_service = OAuthService(db)
-        result = await oauth_service.handle_google_callback(callback_data.code)
+        firebase_service = FirebaseService(db)
+        result = await firebase_service.handle_firebase_login(login_request.id_token)
         return result
     except Exception as e:
         raise HTTPException(

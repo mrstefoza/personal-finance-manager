@@ -46,21 +46,24 @@ This folder contains all the architectural decisions, database schemas, and tech
 
 ### Authentication
 - ✅ JWT with refresh tokens (15-30 min access, 7-30 days refresh)
-- ✅ Email/password + Google OAuth
+- ✅ Email/password + Firebase Authentication (Google OAuth)
 - ✅ MFA: TOTP + Email (no SMS due to cost)
 - ✅ Token revocation via database storage
+- ✅ Firebase Admin SDK for secure token verification
 
 ### Database
 - ✅ Raw SQL with asyncpg (no ORM)
 - ✅ Alembic for migrations
 - ✅ UUID primary keys
 - ✅ User types: individual, business
+- ✅ Firebase UID support for OAuth users
 
 ### Security
 - ✅ Rate limiting for MFA and login attempts
 - ✅ Account lockout after failed attempts
 - ✅ Encrypted sensitive data (TOTP secrets, backup codes)
 - ✅ Audit trails for all actions
+- ✅ Firebase token verification on backend
 
 ### Development & Deployment
 - ✅ Docker Compose for development and production
@@ -81,6 +84,7 @@ The project uses **Alembic** for database migrations with a hybrid approach:
 - **Current migrations**:
   - `0001_initial_schema.py` - Base schema (users, sessions, MFA tables)
   - `0002_add_mfa_sessions.py` - MFA session tracking
+  - `0003_add_firebase_uid.py` - Firebase UID support for OAuth
 - **Format**: Raw SQL with upgrade/downgrade functions
 
 ### Deployment Workflow
@@ -197,6 +201,8 @@ docker compose exec app alembic upgrade head --verbose
 - User registration and authentication
 - JWT token management
 - TOTP MFA setup and verification
+- Email confirmation system
+- Firebase Authentication integration
 - Frontend demo with MFA flows
 - Database migration system
 - Deployment automation
@@ -210,7 +216,7 @@ docker compose exec app alembic upgrade head --verbose
 ### 🔄 Next Priorities
 1. Implement comprehensive test suite according to testing strategy
 2. Add automated test execution on code changes
-3. Complete Google OAuth integration
+3. Complete Firebase setup and testing
 4. Implement email MFA with actual email sending
 5. Add proper error handling and validation
 
@@ -254,8 +260,7 @@ docker compose exec app alembic stamp head
 SECRET_KEY=your_secure_secret_key
 JWT_SECRET_KEY=your_secure_jwt_secret
 DATABASE_URL=your_production_database_url
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+FIREBASE_SERVICE_ACCOUNT_JSON=your_firebase_service_account_json
 ```
 
 ### Development Defaults
@@ -279,6 +284,7 @@ DATABASE_URL=postgresql://pfm_user:pfm_dev_secure_2024_xyz789@postgres:5432/pfm_
 - Use environment variables for configuration
 - Implement audit trails
 - Regular security updates
+- Firebase token verification on backend
 
 ## Troubleshooting Guide
 
@@ -293,6 +299,7 @@ DATABASE_URL=postgresql://pfm_user:pfm_dev_secure_2024_xyz789@postgres:5432/pfm_
 - **Database connection failed**: Verify DATABASE_URL and network
 - **Migration conflicts**: Use `alembic stamp head` for existing databases
 - **Missing dependencies**: Rebuild container with `docker compose build app`
+- **Firebase errors**: Check service account configuration and environment variables
 
 ## Future Enhancements
 

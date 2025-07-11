@@ -21,6 +21,7 @@ CREATE TABLE users (
     
     -- OAuth fields
     google_id VARCHAR(255) UNIQUE,
+    firebase_uid VARCHAR(255) UNIQUE,
     oauth_provider VARCHAR(20),
     
     -- MFA fields
@@ -45,6 +46,7 @@ CREATE TABLE users (
 -- Create indexes for users table
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_google_id ON users(google_id);
+CREATE INDEX idx_users_firebase_uid ON users(firebase_uid);
 CREATE INDEX idx_users_user_type ON users(user_type);
 CREATE INDEX idx_users_profile_status ON users(profile_status);
 CREATE INDEX idx_users_created_at ON users(created_at);

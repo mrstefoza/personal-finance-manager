@@ -2,20 +2,17 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 
-class GoogleAuthRequest(BaseModel):
-    """Request to initiate Google OAuth"""
-    redirect_uri: str
-
-
-class GoogleAuthResponse(BaseModel):
-    """Response with Google OAuth URL"""
-    auth_url: str
-
-
-class GoogleCallbackRequest(BaseModel):
-    """Request for Google OAuth callback"""
-    code: str
-    redirect_uri: str
+class FirebaseLoginRequest(BaseModel):
+    """Request for Firebase authentication"""
+    id_token: str
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMzQ1Njc4OTAiLCJ0eXAiOiJKV1QifQ..."
+            }
+        }
+    )
 
 
 class OAuthLoginResponse(BaseModel):
@@ -26,10 +23,4 @@ class OAuthLoginResponse(BaseModel):
     access_token: Optional[str] = None
     refresh_token: Optional[str] = None
     token_type: Optional[str] = None
-    user: Optional[dict] = None
-
-
-class LinkGoogleRequest(BaseModel):
-    """Request to link Google account to existing user"""
-    google_token: str
-    redirect_uri: str 
+    user: Optional[dict] = None 

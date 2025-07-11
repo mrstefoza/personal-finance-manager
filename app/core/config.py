@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     
+    # Firebase
+    FIREBASE_SERVICE_ACCOUNT_KEY_PATH: Optional[str] = None
+    FIREBASE_SERVICE_ACCOUNT_JSON: Optional[str] = None
+    
     # Email (for MFA)
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587
