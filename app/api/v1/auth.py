@@ -3,9 +3,8 @@ from app.core.database import Database
 from app.services.user_service import UserService
 from app.services.mfa_service import MFAService
 from app.services.firebase_service import FirebaseService
-from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, RefreshTokenRequest
+from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, RefreshTokenRequest, FirebaseLoginRequest, OAuthLoginResponse
 from app.schemas.mfa import LoginResponse, MFALoginVerifyRequest
-from app.schemas.oauth import FirebaseLoginRequest, OAuthLoginResponse
 from app.api.deps import get_database, get_current_user
 from app.utils.jwt import JWTManager
 from uuid import UUID
@@ -98,7 +97,14 @@ async def login(
             return LoginResponse(
                 requires_mfa=True,
                 mfa_type=mfa_type,
-                temp_token=temp_token
+                temp_token=temp_token,
+                user={
+                    "id": str(user["id"]),
+                    "email": user["email"],
+                    "full_name": user["full_name"],
+                    "user_type": user["user_type"],
+                    "profile_status": user["profile_status"]
+                }
             )
         else:
             # No MFA required, return full tokens
@@ -108,7 +114,14 @@ async def login(
                 requires_mfa=False,
                 access_token=tokens["access_token"],
                 refresh_token=tokens["refresh_token"],
-                token_type=tokens["token_type"]
+                token_type=tokens["token_type"],
+                user={
+                    "id": str(user["id"]),
+                    "email": user["email"],
+                    "full_name": user["full_name"],
+                    "user_type": user["user_type"],
+                    "profile_status": user["profile_status"]
+                }
             )
             
     except ValueError as e:
@@ -194,6 +207,15 @@ async def verify_mfa_login(
             tokens["mfa_session_token"] = mfa_session_token
         
         print(f"DEBUG: Generated tokens successfully")
+        
+        # Add user data to response
+        tokens["user"] = {
+            "id": str(user["id"]),
+            "email": user["email"],
+            "full_name": user["full_name"],
+            "user_type": user["user_type"],
+            "profile_status": user["profile_status"]
+        }
         
         return tokens
         
@@ -320,7 +342,6 @@ async def resend_verification_email(
         )
 
 
-# OAuth endpoints (existing code)
 @router.post("/firebase/login", response_model=OAuthLoginResponse)
 async def firebase_login(
     login_request: FirebaseLoginRequest,
@@ -364,3 +385,15 @@ async def logout(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
         ) 
+
+
+@router.post("/validate-token")
+async def validate_token(
+    current_user: dict = Depends(get_current_user)
+):
+    """Validate current JWT token"""
+    return {
+        "valid": True,
+        "user_id": str(current_user["id"]),
+        "email": current_user["email"]
+    } 

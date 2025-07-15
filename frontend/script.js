@@ -1,6 +1,171 @@
 // Global variables
 let currentUser = null;
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = '/api/v1';
+
+// At the top, after defining currentUser and API_BASE
+const savedUser = localStorage.getItem('currentUser');
+if (savedUser) {
+    currentUser = JSON.parse(savedUser);
+}
+
+// Navigation state management
+const NAV_SECTIONS = {
+    'login': 'login-section',
+    'register': 'register-section',
+    'dashboard': 'dashboard-section',
+    'mfa-setup': 'mfa-setup-section',
+    'totp-setup': 'totp-setup-section',
+    'totp-management': 'totp-management-section',
+    'email-mfa': 'email-mfa-section',
+    'backup-codes': 'backup-codes-section',
+    'mfa': 'mfa-section',
+    'email-verification': 'email-verification-section',
+    'resend-verification': 'resend-verification-section'
+};
+
+// Authentication check function
+function isUserAuthenticated() {
+    // Check if user has a valid access token (not just temp_token for MFA)
+    return currentUser && currentUser.access_token && !currentUser.temp_token;
+}
+
+// Token validation function (only for critical operations)
+async function validateToken() {
+    if (!currentUser || !currentUser.access_token) {
+        return false;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/auth/validate-token`, {
+            headers: {
+                'Authorization': `Bearer ${currentUser.access_token}`,
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        return response.ok;
+    } catch (error) {
+        console.error('Token validation failed:', error);
+        return false;
+    }
+}
+
+// Check authentication before protected operations (simplified)
+async function checkAuthentication() {
+    if (!isUserAuthenticated()) {
+        return false;
+    }
+    
+    return true;
+}
+
+// Navigation functions
+function navigateTo(section, updateHistory = true) {
+    // Check if user is authenticated for protected sections
+    const protectedSections = ['dashboard', 'mfa-setup', 'totp-setup', 'totp-management', 'email-mfa', 'backup-codes'];
+    
+    // Allow access to MFA section if user has temp_token (MFA verification in progress)
+    if (section === 'mfa' && currentUser && currentUser.temp_token) {
+        // Allow access to MFA section during verification
+    } else if (protectedSections.includes(section) && !isUserAuthenticated()) {
+        console.log('Redirecting to login - user not authenticated');
+        section = 'login';
+    }
+    
+    // Hide all sections
+    document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+    
+    // Show target section
+    const targetSection = document.getElementById(NAV_SECTIONS[section]);
+    if (targetSection) {
+        targetSection.style.display = 'block';
+    }
+    
+    // Update navigation links
+    updateNavigationLinks(section);
+    
+    // Update browser history
+    if (updateHistory) {
+        const url = new URL(window.location);
+        url.searchParams.set('section', section);
+        window.history.pushState({ section }, '', url);
+    }
+}
+
+function updateNavigationLinks(activeSection) {
+    const navLinks = document.getElementById('nav-links');
+    navLinks.innerHTML = '';
+    
+    if (!isUserAuthenticated()) {
+        // Not logged in - show only login/register
+        addNavLink('login', 'Login', activeSection);
+        addNavLink('register', 'Register', activeSection);
+        
+        // Hide user section
+        document.getElementById('nav-user').style.display = 'none';
+    } else {
+        // Logged in - show full navigation
+        addNavLink('dashboard', 'Dashboard', activeSection);
+        addNavLink('mfa-setup', 'Setup MFA', activeSection);
+        addNavLink('totp-management', 'TOTP Management', activeSection);
+        addNavLink('email-mfa', 'Email MFA', activeSection);
+        addNavLink('backup-codes', 'Backup Codes', activeSection);
+        
+        // Show user info in nav
+        const navUser = document.getElementById('nav-user');
+        const userName = document.getElementById('user-name');
+        if (currentUser && currentUser.user) {
+            userName.textContent = `${currentUser.user.full_name} (${currentUser.user.email})`;
+            navUser.style.display = 'flex';
+        }
+    }
+}
+
+function addNavLink(section, text, activeSection) {
+    const navLinks = document.getElementById('nav-links');
+    const link = document.createElement('a');
+    link.href = '#';
+    link.className = `nav-link ${section === activeSection ? 'active' : ''}`;
+    link.textContent = text;
+    link.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateTo(section);
+    });
+    navLinks.appendChild(link);
+}
+
+// Handle browser back/forward buttons
+window.addEventListener('popstate', function(event) {
+    if (event.state && event.state.section) {
+        navigateTo(event.state.section, false);
+    } else {
+        // Default to login if no section in history
+        navigateTo('login', false);
+    }
+});
+
+// Initialize navigation on page load
+function initializeNavigation() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let section = urlParams.get('section') || 'login';
+    
+    // Check if user is authenticated for protected sections
+    const protectedSections = ['dashboard', 'mfa-setup', 'totp-setup', 'totp-management', 'email-mfa', 'backup-codes'];
+    
+    // Allow access to MFA section if user has temp_token (MFA verification in progress)
+    if (section === 'mfa' && currentUser && currentUser.temp_token) {
+        // Allow access to MFA section during verification
+    } else if (protectedSections.includes(section) && !isUserAuthenticated()) {
+        console.log('Redirecting to login - user not authenticated for protected section');
+        section = 'login';
+        // Update URL to reflect the redirect
+        const url = new URL(window.location);
+        url.searchParams.set('section', section);
+        window.history.replaceState({ section }, '', url);
+    }
+    
+    navigateTo(section, false);
+}
 
 // Utility functions
 function showMessage(elementId, message, type = 'info') {
@@ -35,29 +200,24 @@ function setLoading(button, loading) {
 
 // Navigation functions
 function switchToLogin() {
-    document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-    document.getElementById('login-section').style.display = 'block';
+    navigateTo('login');
 }
 
 function switchToRegister() {
-    document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-    document.getElementById('register-section').style.display = 'block';
+    navigateTo('register');
 }
 
 function switchToMFA() {
-    document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-    document.getElementById('mfa-section').style.display = 'block';
+    navigateTo('mfa');
 }
 
 function switchToDashboard() {
-    document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-    document.getElementById('dashboard-section').style.display = 'block';
+    navigateTo('dashboard');
     updateDashboard();
 }
 
 function switchToEmailVerification() {
-    document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-    document.getElementById('email-verification-section').style.display = 'block';
+    navigateTo('email-verification');
 }
 
 // API functions
@@ -79,12 +239,20 @@ async function register(userData) {
 }
 
 async function login(email, password) {
+    // Get stored MFA session token if available
+    const mfaSessionToken = localStorage.getItem('mfaSessionToken');
+    
+    const loginData = { email, password };
+    if (mfaSessionToken) {
+        loginData.mfa_session_token = mfaSessionToken;
+    }
+    
     const response = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify(loginData)
     });
 
     if (!response.ok) {
@@ -280,8 +448,22 @@ function validateLoginForm(data) {
 
 // Dashboard functions
 function onLoginSuccess() {
-    switchToDashboard();
+    // Update navigation first to show authenticated sections
+    updateNavigationLinks('dashboard');
+    
+    // Navigate to dashboard
+    navigateTo('dashboard');
     updateDashboard();
+    
+    // Show nav user section
+    const navUser = document.getElementById('nav-user');
+    const userName = document.getElementById('user-name');
+    if (currentUser && currentUser.user) {
+        userName.textContent = `${currentUser.user.full_name} (${currentUser.user.email})`;
+        navUser.style.display = 'flex';
+    }
+    // Save to localStorage
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
 }
 
 function updateDashboard() {
@@ -292,17 +474,79 @@ function updateDashboard() {
             <p><strong>Email:</strong> ${currentUser.user.email}</p>
             <p><strong>User Type:</strong> ${currentUser.user.user_type}</p>
             <p><strong>Profile Status:</strong> ${currentUser.user.profile_status}</p>
+            
+            <div class="mfa-status-section">
+                <h4>MFA Status</h4>
+                <div id="mfa-status-display">
+                    <p>Loading MFA status...</p>
+                </div>
+            </div>
         `;
+        
+        // Load and display MFA status
+        loadMFAStatus();
+    }
+}
+
+async function loadMFAStatus() {
+    try {
+        const status = await getMFAStatus();
+        const statusDisplay = document.getElementById('mfa-status-display');
+        
+        if (status) {
+            statusDisplay.innerHTML = `
+                <div class="status-item">
+                    <span class="status-label">TOTP:</span>
+                    <span class="status-value ${status.totp_enabled ? 'enabled' : 'disabled'}">
+                        ${status.totp_enabled ? '✅ Enabled' : '❌ Disabled'}
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Email MFA:</span>
+                    <span class="status-value ${status.email_mfa_enabled ? 'enabled' : 'disabled'}">
+                        ${status.email_mfa_enabled ? '✅ Enabled' : '❌ Disabled'}
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">MFA Required:</span>
+                    <span class="status-value ${status.mfa_required ? 'enabled' : 'disabled'}">
+                        ${status.mfa_required ? '✅ Yes' : '❌ No'}
+                    </span>
+                </div>
+                ${status.totp_enabled ? `
+                <div class="status-item">
+                    <span class="status-label">Backup Codes:</span>
+                    <span class="status-value">
+                        ${status.backup_codes_remaining} remaining
+                    </span>
+                </div>
+                ` : ''}
+            `;
+        } else {
+            statusDisplay.innerHTML = '<p class="error">Failed to load MFA status</p>';
+        }
+    } catch (error) {
+        console.error('Failed to load MFA status:', error);
+        const statusDisplay = document.getElementById('mfa-status-display');
+        statusDisplay.innerHTML = '<p class="error">Failed to load MFA status</p>';
     }
 }
 
 function logout() {
     currentUser = null;
-    switchToLogin();
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('mfaSessionToken');
+    
     // Also sign out from Firebase if user was signed in
     if (window.FirebaseAuth) {
         window.FirebaseAuth.signOut().catch(console.error);
     }
+    
+    // Hide nav user section
+    document.getElementById('nav-user').style.display = 'none';
+    
+    // Navigate to login and reset navigation
+    navigateTo('login');
 }
 
 // URL token handling
@@ -337,6 +581,9 @@ async function verifyEmailFromURL(token) {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize navigation
+    initializeNavigation();
+
     // Check for verification token in URL
     checkForVerificationToken();
     
@@ -344,6 +591,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('show-login').addEventListener('click', switchToLogin);
     document.getElementById('show-register').addEventListener('click', switchToRegister);
     document.getElementById('logout-btn').addEventListener('click', logout);
+    document.getElementById('nav-logout-btn').addEventListener('click', logout);
     document.getElementById('email-verification-login-btn').addEventListener('click', switchToLogin);
     
     // Google login button
@@ -363,7 +611,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (response.requires_mfa) {
                 // Store temp token for MFA verification
-                currentUser = { temp_token: response.temp_token, mfa_type: response.mfa_type };
+                currentUser = { temp_token: response.temp_token, mfa_type: response.mfa_type, user: response.user };
                 switchToMFA();
                 showMessage('mfa-message', `Please enter your ${response.mfa_type.toUpperCase()} code.`, 'info');
             } else {
@@ -438,7 +686,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (response.requires_mfa) {
                 // Store temp token for MFA verification
-                currentUser = { temp_token: response.temp_token, mfa_type: response.mfa_type };
+                currentUser = { temp_token: response.temp_token, mfa_type: response.mfa_type, user: response.user };
                 switchToMFA();
                 showMessage('mfa-message', `Please enter your ${response.mfa_type.toUpperCase()} code.`, 'info');
             } else {
@@ -467,36 +715,15 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const result = await verifyMFA(currentUser.temp_token, code, rememberDevice);
             currentUser = result;
+            
+            // Store MFA session token if remember_device was checked
+            if (rememberDevice && result.mfa_session_token) {
+                localStorage.setItem('mfaSessionToken', result.mfa_session_token);
+            }
+            
             onLoginSuccess();
         } catch (error) {
             showMessage('mfa-message', `MFA verification failed: ${error.message}`, 'error');
-        } finally {
-            setLoading(submitButton, false);
-        }
-    });
-
-    // MFA setup form
-    document.getElementById('mfa-setup-form').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const submitButton = this.querySelector('button[type="submit"]');
-        setLoading(submitButton, true);
-        hideMessage('mfa-setup-message');
-        
-        try {
-            const result = await setupTOTP();
-            
-            // Show QR code and secret
-            document.getElementById('qr-code').src = result.qr_code_url;
-            document.getElementById('totp-secret').textContent = result.secret;
-            document.getElementById('backup-codes').textContent = result.backup_codes.join(', ');
-            
-            // Show verification step
-            document.getElementById('mfa-setup-step1').style.display = 'none';
-            document.getElementById('mfa-setup-step2').style.display = 'block';
-            
-        } catch (error) {
-            showMessage('mfa-setup-message', `TOTP setup failed: ${error.message}`, 'error');
         } finally {
             setLoading(submitButton, false);
         }
@@ -517,7 +744,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showMessage('totp-verify-message', 'TOTP enabled successfully!', 'success');
             
             // Update MFA status
-            updateMFAStatus();
+            loadMFAStatus();
             
         } catch (error) {
             showMessage('totp-verify-message', `TOTP verification failed: ${error.message}`, 'error');
@@ -548,27 +775,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Dashboard navigation
     document.getElementById('show-mfa-setup').addEventListener('click', function() {
-        document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-        document.getElementById('mfa-setup-section').style.display = 'block';
+        navigateTo('mfa-setup');
     });
 
     document.getElementById('show-totp-management').addEventListener('click', function() {
-        document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-        document.getElementById('totp-management-section').style.display = 'block';
+        navigateTo('totp-management');
     });
 
     document.getElementById('show-email-mfa').addEventListener('click', function() {
-        document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-        document.getElementById('email-mfa-section').style.display = 'block';
+        navigateTo('email-mfa');
     });
 
     document.getElementById('show-backup-codes').addEventListener('click', function() {
-        document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
-        document.getElementById('backup-codes-section').style.display = 'block';
+        navigateTo('backup-codes');
     });
 
-    // TOTP setup button
-    document.getElementById('setup-totp-btn').addEventListener('click', async function() {
+    // TOTP setup button (main MFA setup section)
+    document.getElementById('setup-totp-btn-main').addEventListener('click', async function() {
         try {
             setLoading(this, true);
             hideMessage('mfa-setup-message');
@@ -581,11 +804,125 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('backup-codes').textContent = result.backup_codes.join(', ');
             
             // Show verification step
-            document.getElementById('mfa-setup-step1').style.display = 'none';
-            document.getElementById('mfa-setup-step2').style.display = 'block';
+            document.getElementById('totp-setup-step1').style.display = 'none';
+            document.getElementById('totp-setup-step2').style.display = 'block';
             
         } catch (error) {
             showMessage('mfa-setup-message', `TOTP setup failed: ${error.message}`, 'error');
+        } finally {
+            setLoading(this, false);
+        }
+    });
+
+    // TOTP setup button (generate QR code)
+    document.getElementById('setup-totp-btn-generate').addEventListener('click', async function() {
+        try {
+            setLoading(this, true);
+            hideMessage('totp-verify-message');
+            
+            const result = await setupTOTP();
+            
+            // Show QR code and secret
+            document.getElementById('qr-code').src = result.qr_code_url;
+            document.getElementById('totp-secret').textContent = result.secret;
+            document.getElementById('backup-codes').textContent = result.backup_codes.join(', ');
+            
+            // Show verification step
+            document.getElementById('totp-setup-step1').style.display = 'none';
+            document.getElementById('totp-setup-step2').style.display = 'block';
+            
+        } catch (error) {
+            showMessage('totp-verify-message', `TOTP setup failed: ${error.message}`, 'error');
+        } finally {
+            setLoading(this, false);
+        }
+    });
+
+    // TOTP setup button (management section)
+    document.getElementById('setup-totp-btn-manage').addEventListener('click', async function() {
+        try {
+            setLoading(this, true);
+            hideMessage('totp-management-message');
+            
+            const result = await setupTOTP();
+            
+            // Show QR code and secret
+            document.getElementById('qr-code').src = result.qr_code_url;
+            document.getElementById('totp-secret').textContent = result.secret;
+            document.getElementById('backup-codes').textContent = result.backup_codes.join(', ');
+            
+            // Show verification step
+            document.getElementById('totp-setup-step1').style.display = 'none';
+            document.getElementById('totp-setup-step2').style.display = 'block';
+            
+        } catch (error) {
+            showMessage('totp-management-message', `TOTP setup failed: ${error.message}`, 'error');
+        } finally {
+            setLoading(this, false);
+        }
+    });
+
+    // Email MFA setup button (main MFA setup section)
+    document.getElementById('setup-email-mfa-btn-main').addEventListener('click', async function() {
+        try {
+            setLoading(this, true);
+            hideMessage('mfa-setup-message');
+            
+            // Enable email MFA
+            const response = await fetch(`${API_BASE}/mfa/email/setup`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${currentUser.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Email MFA setup failed');
+            }
+
+            showMessage('mfa-setup-message', 'Email MFA enabled successfully!', 'success');
+            
+            // Update MFA status
+            loadMFAStatus();
+            
+        } catch (error) {
+            showMessage('mfa-setup-message', `Email MFA setup failed: ${error.message}`, 'error');
+        } finally {
+            setLoading(this, false);
+        }
+    });
+
+    // Email MFA setup button (enable)
+    document.getElementById('setup-email-mfa-btn-enable').addEventListener('click', async function() {
+        try {
+            setLoading(this, true);
+            hideMessage('email-mfa-message');
+            
+            // Enable email MFA
+            const response = await fetch(`${API_BASE}/mfa/email/setup`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${currentUser.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Email MFA setup failed');
+            }
+
+            showMessage('email-mfa-message', 'Email MFA enabled successfully!', 'success');
+            
+            // Update MFA status
+            loadMFAStatus();
+            
+        } catch (error) {
+            showMessage('email-mfa-message', `Email MFA setup failed: ${error.message}`, 'error');
         } finally {
             setLoading(this, false);
         }
@@ -600,6 +937,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 await disableTOTP();
                 showMessage('totp-management-message', 'TOTP disabled successfully!', 'success');
+                
+                // Update MFA status
+                loadMFAStatus();
                 
             } catch (error) {
                 showMessage('totp-management-message', `Failed to disable TOTP: ${error.message}`, 'error');
@@ -618,4 +958,4 @@ async function updateMFAStatus() {
     } catch (error) {
         console.error('Failed to update MFA status:', error);
     }
-} 
+}

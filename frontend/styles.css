@@ -1,3 +1,102 @@
+/* Navigation Menu */
+.nav-menu {
+    background-color: #2c3e50;
+    color: white;
+    padding: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 60px;
+}
+
+.nav-brand h3 {
+    margin: 0;
+    color: #ecf0f1;
+    font-size: 1.2rem;
+}
+
+.nav-links {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.nav-link {
+    color: #bdc3c7;
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.nav-link:hover {
+    color: white;
+    background-color: #34495e;
+}
+
+.nav-link.active {
+    color: white;
+    background-color: #3498db;
+}
+
+.nav-user {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.nav-user span {
+    color: #ecf0f1;
+    font-size: 0.9rem;
+}
+
+.nav-btn {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.3s ease;
+}
+
+.nav-btn:hover {
+    background-color: #c0392b;
+}
+
+/* Responsive navigation */
+@media (max-width: 768px) {
+    .nav-container {
+        flex-direction: column;
+        padding: 10px 20px;
+        gap: 10px;
+    }
+    
+    .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+    }
+    
+    .nav-link {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+    }
+}
+
 /* Reset and base styles */
 * {
     margin: 0;
@@ -511,4 +610,58 @@ select:focus {
 
 .login-divider span {
     padding: 0 16px;
+} 
+
+/* MFA Status Section */
+.mfa-status-section {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.mfa-status-section h4 {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-size: 1.1rem;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.status-item:last-child {
+    border-bottom: none;
+}
+
+.status-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.status-value {
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.status-value.enabled {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-value.disabled {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.status-value.error {
+    background-color: #fff3cd;
+    color: #856404;
 } 

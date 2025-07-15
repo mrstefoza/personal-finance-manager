@@ -84,6 +84,7 @@ class LoginResponse(BaseModel):
     access_token: Optional[str] = None
     refresh_token: Optional[str] = None
     token_type: str = "bearer"
+    user: Optional[dict] = None  # User data when login is successful
 
 
 class MFALoginVerifyRequest(BaseModel):

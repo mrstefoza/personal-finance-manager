@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
@@ -81,6 +81,7 @@ class TokenResponse(BaseModel):
     token_type: str
     expires_in: int
     mfa_session_token: Optional[str] = None
+    user: Optional[dict] = None  # User data when authentication is successful
 
 
 class RefreshTokenRequest(BaseModel):
@@ -124,3 +125,16 @@ class ResendVerificationResponse(BaseModel):
     """Schema for resend verification email response"""
     message: str
     sent: bool 
+
+# Firebase Authentication Schemas
+class FirebaseLoginRequest(BaseModel):
+    id_token: str = Field(..., description="Firebase ID token from frontend")
+
+class OAuthLoginResponse(BaseModel):
+    requires_mfa: bool = Field(..., description="Whether MFA is required")
+    mfa_type: Optional[str] = Field(None, description="Type of MFA required (totp, email)")
+    temp_token: Optional[str] = Field(None, description="Temporary token for MFA verification")
+    access_token: Optional[str] = Field(None, description="JWT access token")
+    refresh_token: Optional[str] = Field(None, description="JWT refresh token")
+    token_type: Optional[str] = Field(None, description="Token type (Bearer)")
+    user: Optional[UserResponse] = Field(None, description="User information") 

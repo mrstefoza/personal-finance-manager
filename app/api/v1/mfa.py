@@ -190,8 +190,8 @@ async def setup_email_mfa(
         mfa_service = MFAService(db)
         
         # Check if email MFA is already enabled
-        status = await mfa_service.get_mfa_status(current_user["id"])
-        if status["email_mfa_enabled"]:
+        mfa_status = await mfa_service.get_mfa_status(current_user["id"])
+        if mfa_status["email_mfa_enabled"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email MFA is already enabled"
