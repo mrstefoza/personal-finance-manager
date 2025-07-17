@@ -38,7 +38,6 @@ services:
       - SMTP_PORT=1025
       - SMTP_USER=
       - SMTP_PASSWORD=
-      - FRONTEND_HOSTNAME=http://localhost:3000
     volumes:
       - .:/app
       - ./logs:/app/logs
