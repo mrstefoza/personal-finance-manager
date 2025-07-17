@@ -196,7 +196,17 @@ async def verify_mfa_login(
         print(f"DEBUG: About to verify MFA code for type: {mfa_type}")
         
         if mfa_type == "totp":
+            # First try TOTP verification
             mfa_verified = await mfa_service.verify_totp_login(user_id, mfa_request.code)
+            
+            # If TOTP fails, try backup code as fallback
+            if not mfa_verified:
+                print(f"DEBUG: TOTP verification failed, trying backup code")
+                mfa_verified = await mfa_service.verify_backup_code(user_id, mfa_request.code)
+                if mfa_verified:
+                    print(f"DEBUG: Backup code verification successful")
+                else:
+                    print(f"DEBUG: Both TOTP and backup code verification failed")
         elif mfa_type == "email":
             mfa_verified = await mfa_service.verify_email_mfa_code(user_id, mfa_request.code)
         

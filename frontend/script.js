@@ -693,6 +693,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (response.mfa_type === 'email') {
                     showMessage('mfa-message', `Please enter your EMAIL code. Check the browser console for the code (development mode).`, 'info');
                     console.log('Email MFA code should have been auto-sent. Check the backend console for the code.');
+                } else if (response.mfa_type === 'totp') {
+                    showMessage('mfa-message', `Please enter your TOTP code from your authenticator app. You can also use a backup code instead.`, 'info');
                 } else {
                     showMessage('mfa-message', `Please enter your ${response.mfa_type.toUpperCase()} code.`, 'info');
                 }
@@ -1153,6 +1155,50 @@ document.addEventListener('DOMContentLoaded', function() {
             } finally {
                 setLoading(this, false);
             }
+        }
+    });
+
+    // Verify backup code button
+    document.getElementById('verify-backup-btn').addEventListener('click', async function() {
+        try {
+            setLoading(this, true);
+            hideMessage('backup-message');
+            
+            const code = document.getElementById('backup-code').value;
+            if (!code) {
+                showMessage('backup-message', 'Please enter a backup code.', 'error');
+                return;
+            }
+            
+            // Verify backup code
+            const response = await fetch(`${API_BASE}/mfa/backup/verify`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${currentUser.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ code: code })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                console.log('Backup code verification error:', error);
+                throw new Error(error.detail || 'Failed to verify backup code');
+            }
+
+            showMessage('backup-message', 'Backup code verified successfully!', 'success');
+            
+            // Clear the input
+            document.getElementById('backup-code').value = '';
+            
+            // Update MFA status to show remaining backup codes
+            loadMFAStatus();
+            
+        } catch (error) {
+            console.error('Backup code verification error:', error);
+            showMessage('backup-message', `Failed to verify backup code: ${error.message}`, 'error');
+        } finally {
+            setLoading(this, false);
         }
     });
 });
