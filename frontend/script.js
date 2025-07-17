@@ -613,7 +613,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Store temp token for MFA verification
                 currentUser = { temp_token: response.temp_token, mfa_type: response.mfa_type, user: response.user };
                 switchToMFA();
-                showMessage('mfa-message', `Please enter your ${response.mfa_type.toUpperCase()} code.`, 'info');
+                
+                // Show appropriate message based on MFA type
+                if (response.mfa_type === 'email') {
+                    showMessage('mfa-message', `Please enter your EMAIL code. Check the browser console for the code (development mode).`, 'info');
+                    console.log('Email MFA code should have been auto-sent. Check the backend console for the code.');
+                } else if (response.mfa_type === 'totp') {
+                    showMessage('mfa-message', `Please enter your TOTP code from your authenticator app. You can also use a backup code instead.`, 'info');
+                } else {
+                    showMessage('mfa-message', `Please enter your ${response.mfa_type.toUpperCase()} code.`, 'info');
+                }
             } else {
                 // Normal login success
                 currentUser = response;

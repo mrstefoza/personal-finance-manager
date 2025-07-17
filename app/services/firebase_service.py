@@ -165,6 +165,16 @@ class FirebaseService:
             mfa_type = "totp" if mfa_status["totp_enabled"] else "email"
             temp_token = JWTManager.create_temp_token(user["id"], user["email"], mfa_type)
             
+            # If email MFA is required, automatically send the code
+            if mfa_type == "email":
+                try:
+                    # Send email MFA code automatically
+                    code = await self.mfa_service.send_email_mfa_code(user["id"], user["email"])
+                    print(f"DEBUG: Firebase login - Auto-sent email MFA code: {code}")
+                except Exception as e:
+                    print(f"DEBUG: Firebase login - Failed to auto-send email MFA code: {str(e)}")
+                    # Don't fail the login, just log the error
+            
             return {
                 "requires_mfa": True,
                 "mfa_type": mfa_type,
