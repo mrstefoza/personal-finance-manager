@@ -20,18 +20,32 @@ class FirebaseService:
         
         # Initialize Firebase Admin SDK if not already initialized
         if not firebase_admin._apps:
+            print(f"DEBUG: Initializing Firebase Admin SDK")
+            print(f"DEBUG: FIREBASE_SERVICE_ACCOUNT_KEY_PATH = {settings.FIREBASE_SERVICE_ACCOUNT_KEY_PATH}")
+            print(f"DEBUG: FIREBASE_SERVICE_ACCOUNT_JSON exists = {settings.FIREBASE_SERVICE_ACCOUNT_JSON is not None}")
+            if settings.FIREBASE_SERVICE_ACCOUNT_JSON:
+                print(f"DEBUG: FIREBASE_SERVICE_ACCOUNT_JSON length = {len(settings.FIREBASE_SERVICE_ACCOUNT_JSON)}")
+            
             try:
                 # Try to load service account key from file
+                print(f"DEBUG: Trying to load Firebase service account from file...")
                 cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_KEY_PATH)
                 firebase_admin.initialize_app(cred)
+                print(f"DEBUG: Firebase initialized from file successfully")
             except Exception as e:
+                print(f"DEBUG: Failed to load from file: {e}")
                 # If file not found, try to use environment variable
                 try:
+                    print(f"DEBUG: Trying to load Firebase service account from environment variable...")
                     import json
+                    if not settings.FIREBASE_SERVICE_ACCOUNT_JSON:
+                        raise Exception("FIREBASE_SERVICE_ACCOUNT_JSON environment variable is not set")
                     service_account_info = json.loads(settings.FIREBASE_SERVICE_ACCOUNT_JSON)
                     cred = credentials.Certificate(service_account_info)
                     firebase_admin.initialize_app(cred)
+                    print(f"DEBUG: Firebase initialized from environment variable successfully")
                 except Exception as e2:
+                    print(f"DEBUG: Failed to initialize from environment variable: {e2}")
                     raise Exception(f"Failed to initialize Firebase: {e2}")
     
     async def verify_firebase_token(self, id_token: str) -> Dict[str, Any]:

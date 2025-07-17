@@ -444,6 +444,19 @@ button:disabled {
     background: white;
 }
 
+/* QR Code image styling */
+#qr-code {
+    border: 3px solid #3498db;
+    border-radius: 6px;
+    padding: 10px;
+    background: #ffeb3b;
+    display: block;
+    margin: 20px auto;
+    max-width: 200px;
+    height: auto;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
 .secret-info {
     background: #fff3cd;
     padding: 15px;

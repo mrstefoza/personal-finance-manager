@@ -688,7 +688,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Store temp token for MFA verification
                 currentUser = { temp_token: response.temp_token, mfa_type: response.mfa_type, user: response.user };
                 switchToMFA();
-                showMessage('mfa-message', `Please enter your ${response.mfa_type.toUpperCase()} code.`, 'info');
+                
+                // Show appropriate message based on MFA type
+                if (response.mfa_type === 'email') {
+                    showMessage('mfa-message', `Please enter your EMAIL code. Check the browser console for the code (development mode).`, 'info');
+                    console.log('Email MFA code should have been auto-sent. Check the backend console for the code.');
+                } else {
+                    showMessage('mfa-message', `Please enter your ${response.mfa_type.toUpperCase()} code.`, 'info');
+                }
             } else {
                 // Normal login success
                 currentUser = response;
@@ -797,15 +804,36 @@ document.addEventListener('DOMContentLoaded', function() {
             hideMessage('mfa-setup-message');
             
             const result = await setupTOTP();
+            console.log('TOTP setup result:', result);
             
             // Show QR code and secret
-            document.getElementById('qr-code').src = result.qr_code_url;
+            const qrCodeElement = document.getElementById('qr-code');
+            console.log('QR code element:', qrCodeElement);
+            console.log('QR code URL:', result.qr_code_url);
+            
+            qrCodeElement.src = result.qr_code_url;
             document.getElementById('totp-secret').textContent = result.secret;
             document.getElementById('backup-codes').textContent = result.backup_codes.join(', ');
             
             // Show verification step
-            document.getElementById('totp-setup-step1').style.display = 'none';
-            document.getElementById('totp-setup-step2').style.display = 'block';
+            const step1 = document.getElementById('totp-setup-step1');
+            const step2 = document.getElementById('totp-setup-step2');
+            console.log('Step 1 element:', step1);
+            console.log('Step 2 element:', step2);
+            
+            step1.style.display = 'none';
+            step2.style.display = 'block';
+            
+            console.log('Step 1 display after hide:', step1.style.display);
+            console.log('Step 2 display after show:', step2.style.display);
+            
+            // Check if image is visible
+            setTimeout(() => {
+                const rect = qrCodeElement.getBoundingClientRect();
+                console.log('QR code element bounds:', rect);
+                console.log('QR code element visible:', rect.width > 0 && rect.height > 0);
+                console.log('QR code element computed style:', window.getComputedStyle(qrCodeElement));
+            }, 100);
             
         } catch (error) {
             showMessage('mfa-setup-message', `TOTP setup failed: ${error.message}`, 'error');
@@ -821,9 +849,14 @@ document.addEventListener('DOMContentLoaded', function() {
             hideMessage('totp-verify-message');
             
             const result = await setupTOTP();
+            console.log('TOTP setup result (generate):', result);
             
             // Show QR code and secret
-            document.getElementById('qr-code').src = result.qr_code_url;
+            const qrCodeElement = document.getElementById('qr-code');
+            console.log('QR code element (generate):', qrCodeElement);
+            console.log('QR code URL (generate):', result.qr_code_url);
+            
+            qrCodeElement.src = result.qr_code_url;
             document.getElementById('totp-secret').textContent = result.secret;
             document.getElementById('backup-codes').textContent = result.backup_codes.join(', ');
             
@@ -845,15 +878,40 @@ document.addEventListener('DOMContentLoaded', function() {
             hideMessage('totp-management-message');
             
             const result = await setupTOTP();
+            console.log('TOTP setup result (manage):', result);
             
             // Show QR code and secret
-            document.getElementById('qr-code').src = result.qr_code_url;
+            const qrCodeElement = document.getElementById('qr-code');
+            console.log('QR code element (manage):', qrCodeElement);
+            console.log('QR code URL (manage):', result.qr_code_url);
+            
+            qrCodeElement.src = result.qr_code_url;
             document.getElementById('totp-secret').textContent = result.secret;
             document.getElementById('backup-codes').textContent = result.backup_codes.join(', ');
             
             // Show verification step
-            document.getElementById('totp-setup-step1').style.display = 'none';
-            document.getElementById('totp-setup-step2').style.display = 'block';
+            const step1 = document.getElementById('totp-setup-step1');
+            const step2 = document.getElementById('totp-setup-step2');
+            console.log('Step 1 element (manage):', step1);
+            console.log('Step 2 element (manage):', step2);
+            
+            step1.style.display = 'none';
+            step2.style.display = 'block';
+            
+            console.log('Step 1 display after hide (manage):', step1.style.display);
+            console.log('Step 2 display after show (manage):', step2.style.display);
+            
+            // Navigate to TOTP setup section to show the QR code
+            console.log('Navigating to TOTP setup section...');
+            navigateTo('totp-setup');
+            
+            // Check if the section is visible
+            setTimeout(() => {
+                const totpSetupSection = document.getElementById('totp-setup-section');
+                console.log('TOTP setup section element:', totpSetupSection);
+                console.log('TOTP setup section display:', totpSetupSection.style.display);
+                console.log('TOTP setup section visible:', totpSetupSection.offsetParent !== null);
+            }, 100);
             
         } catch (error) {
             showMessage('totp-management-message', `TOTP setup failed: ${error.message}`, 'error');
@@ -880,7 +938,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.detail || 'Email MFA setup failed');
+                console.log('Email MFA setup error:', error);
+                
+                // Handle specific error cases
+                if (response.status === 400) {
+                    if (error.detail && error.detail.includes('already enabled')) {
+                        // Treat "already enabled" as success since the goal is achieved
+                        showMessage('mfa-setup-message', 'Email MFA is already enabled for your account. ✅', 'success');
+                        // Update MFA status to reflect current state
+                        loadMFAStatus();
+                    } else if (error.detail && error.detail.includes('email')) {
+                        showMessage('mfa-setup-message', 'Please ensure your email address is verified before enabling email MFA.', 'error');
+                    } else {
+                        showMessage('mfa-setup-message', `Email MFA setup failed: ${error.detail || 'Invalid request'}. Please try again.`, 'error');
+                    }
+                } else {
+                    throw new Error(error.detail || 'Email MFA setup failed');
+                }
+                return;
             }
 
             showMessage('mfa-setup-message', 'Email MFA enabled successfully!', 'success');
@@ -889,6 +964,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loadMFAStatus();
             
         } catch (error) {
+            console.error('Email MFA setup error:', error);
             showMessage('mfa-setup-message', `Email MFA setup failed: ${error.message}`, 'error');
         } finally {
             setLoading(this, false);
@@ -913,7 +989,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.detail || 'Email MFA setup failed');
+                console.log('Email MFA setup error (enable):', error);
+                
+                // Handle specific error cases
+                if (response.status === 400) {
+                    if (error.detail && error.detail.includes('already enabled')) {
+                        // Treat "already enabled" as success since the goal is achieved
+                        showMessage('email-mfa-message', 'Email MFA is already enabled for your account. ✅', 'success');
+                        // Update MFA status to reflect current state
+                        loadMFAStatus();
+                    } else if (error.detail && error.detail.includes('email')) {
+                        showMessage('email-mfa-message', 'Please ensure your email address is verified before enabling email MFA.', 'error');
+                    } else {
+                        showMessage('email-mfa-message', `Email MFA setup failed: ${error.detail || 'Invalid request'}. Please try again.`, 'error');
+                    }
+                } else {
+                    throw new Error(error.detail || 'Email MFA setup failed');
+                }
+                return;
             }
 
             showMessage('email-mfa-message', 'Email MFA enabled successfully!', 'success');
@@ -922,6 +1015,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loadMFAStatus();
             
         } catch (error) {
+            console.error('Email MFA setup error (enable):', error);
             showMessage('email-mfa-message', `Email MFA setup failed: ${error.message}`, 'error');
         } finally {
             setLoading(this, false);
@@ -943,6 +1037,119 @@ document.addEventListener('DOMContentLoaded', function() {
                 
             } catch (error) {
                 showMessage('totp-management-message', `Failed to disable TOTP: ${error.message}`, 'error');
+            } finally {
+                setLoading(this, false);
+            }
+        }
+    });
+
+    // Send email MFA code button
+    document.getElementById('send-email-code-btn').addEventListener('click', async function() {
+        try {
+            setLoading(this, true);
+            hideMessage('email-mfa-message');
+            
+            const email = document.getElementById('email-mfa-email').value;
+            if (!email) {
+                showMessage('email-mfa-message', 'Please enter an email address for MFA codes.', 'error');
+                return;
+            }
+            
+            // Send email MFA code
+            const response = await fetch(`${API_BASE}/mfa/email/send-code`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${currentUser.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email: email })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                console.log('Send email MFA code error:', error);
+                throw new Error(error.detail || 'Failed to send email MFA code');
+            }
+
+            showMessage('email-mfa-message', 'Email MFA code sent successfully! Check your email.', 'success');
+            
+        } catch (error) {
+            console.error('Send email MFA code error:', error);
+            showMessage('email-mfa-message', `Failed to send email MFA code: ${error.message}`, 'error');
+        } finally {
+            setLoading(this, false);
+        }
+    });
+
+    // Verify email MFA code button
+    document.getElementById('verify-email-btn').addEventListener('click', async function() {
+        try {
+            setLoading(this, true);
+            hideMessage('email-mfa-message');
+            
+            const code = document.getElementById('email-verify-code').value;
+            if (!code) {
+                showMessage('email-mfa-message', 'Please enter the 6-digit code from your email.', 'error');
+                return;
+            }
+            
+            // Verify email MFA code
+            const response = await fetch(`${API_BASE}/mfa/email/verify`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${currentUser.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ code: code })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                console.log('Verify email MFA code error:', error);
+                throw new Error(error.detail || 'Failed to verify email MFA code');
+            }
+
+            showMessage('email-mfa-message', 'Email MFA code verified successfully!', 'success');
+            
+            // Update MFA status
+            loadMFAStatus();
+            
+        } catch (error) {
+            console.error('Verify email MFA code error:', error);
+            showMessage('email-mfa-message', `Failed to verify email MFA code: ${error.message}`, 'error');
+        } finally {
+            setLoading(this, false);
+        }
+    });
+
+    // Disable email MFA button
+    document.getElementById('disable-email-mfa-btn').addEventListener('click', async function() {
+        if (confirm('Are you sure you want to disable Email MFA? This will make your account less secure.')) {
+            try {
+                setLoading(this, true);
+                hideMessage('email-mfa-message');
+                
+                // Disable email MFA
+                const response = await fetch(`${API_BASE}/mfa/email/disable`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentUser.access_token}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to disable email MFA');
+                }
+
+                showMessage('email-mfa-message', 'Email MFA disabled successfully!', 'success');
+                
+                // Update MFA status
+                loadMFAStatus();
+                
+            } catch (error) {
+                showMessage('email-mfa-message', `Failed to disable email MFA: ${error.message}`, 'error');
             } finally {
                 setLoading(this, false);
             }

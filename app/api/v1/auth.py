@@ -94,6 +94,16 @@ async def login(
             mfa_type = "totp" if mfa_status["totp_enabled"] else "email"
             temp_token = JWTManager.create_temp_token(user["id"], user["email"], mfa_type)
             
+            # If email MFA is required, automatically send the code
+            if mfa_type == "email":
+                try:
+                    # Send email MFA code automatically
+                    code = await mfa_service.send_email_mfa_code(user["id"], user["email"])
+                    print(f"DEBUG: Auto-sent email MFA code: {code}")
+                except Exception as e:
+                    print(f"DEBUG: Failed to auto-send email MFA code: {str(e)}")
+                    # Don't fail the login, just log the error
+            
             return LoginResponse(
                 requires_mfa=True,
                 mfa_type=mfa_type,

@@ -41,7 +41,7 @@ class MFAService:
         await self.db.execute(query, encrypted_secret, encrypted_backup_codes, datetime.utcnow(), user_id)
         
         # Generate QR code
-        qr_code_url = TOTPManager.generate_qr_code(secret, email)
+        qr_code_url = TOTPManager.generate_qr_code_image(secret, email)
         
         return TOTPSetupResponse(
             qr_code_url=qr_code_url,
