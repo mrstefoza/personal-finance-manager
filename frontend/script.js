@@ -700,7 +700,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Show appropriate message based on MFA type
                 if (response.mfa_type === 'email') {
-                    showMessage('mfa-message', `Please enter your EMAIL code. Check the browser console for the code (development mode).`, 'info');
+                    showMessage('mfa-message', `Please enter your EMAIL code.`, 'info');
                     console.log('Email MFA code should have been auto-sent. Check the backend console for the code.');
                 } else if (response.mfa_type === 'totp') {
                     showMessage('mfa-message', `Please enter your TOTP code from your authenticator app. You can also use a backup code instead.`, 'info');
