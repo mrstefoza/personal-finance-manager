@@ -278,11 +278,18 @@ async def refresh_token(
 
 @router.post("/verify-email")
 async def verify_email(
-    token: str,
+    request: dict,
     db: Database = Depends(get_database)
 ):
     """Verify user email with token"""
     try:
+        token = request.get("token")
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Token is required"
+            )
+            
         user_service = UserService(db)
         success = await user_service.verify_email(token)
         

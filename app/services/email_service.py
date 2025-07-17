@@ -18,6 +18,10 @@ class EmailService:
     async def send_email(self, to_email: str, subject: str, html_content: str, text_content: str) -> bool:
         """Send an email using SMTP"""
         try:
+            print(f"DEBUG: Attempting to send email to {to_email}")
+            print(f"DEBUG: SMTP_HOST={self.smtp_host}, SMTP_PORT={self.smtp_port}")
+            print(f"DEBUG: SMTP_USER={self.smtp_user}, SMTP_PASSWORD={'***' if self.smtp_password else 'None'}")
+            
             # Create message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
@@ -32,13 +36,22 @@ class EmailService:
             msg.attach(html_part)
             
             # Send email
-            if self.smtp_host and self.smtp_user and self.smtp_password:
-                # Use configured SMTP
+            if self.smtp_host:
+                print(f"DEBUG: Using SMTP server {self.smtp_host}:{self.smtp_port}")
+                # Use configured SMTP (with or without authentication)
                 with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                    server.starttls()
-                    server.login(self.smtp_user, self.smtp_password)
+                    # Only use authentication if credentials are provided
+                    if self.smtp_user and self.smtp_password:
+                        print(f"DEBUG: Using SMTP authentication")
+                        server.starttls()
+                        server.login(self.smtp_user, self.smtp_password)
+                    else:
+                        print(f"DEBUG: No SMTP authentication required")
+                    print(f"DEBUG: Sending email...")
                     server.send_message(msg)
+                    print(f"DEBUG: Email sent successfully!")
             else:
+                print(f"DEBUG: No SMTP_HOST configured, logging email instead")
                 # In development, just log the email
                 print(f"=== EMAIL WOULD BE SENT ===")
                 print(f"To: {to_email}")
@@ -50,7 +63,10 @@ class EmailService:
             return True
             
         except Exception as e:
-            print(f"Failed to send email: {str(e)}")
+            print(f"DEBUG: Failed to send email: {str(e)}")
+            print(f"DEBUG: Exception type: {type(e)}")
+            import traceback
+            print(f"DEBUG: Traceback: {traceback.format_exc()}")
             return False
     
     async def send_verification_email(self, to_email: str, user_name: str, verification_token: str) -> bool:
