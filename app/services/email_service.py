@@ -73,8 +73,8 @@ class EmailService:
         """Send email verification email"""
         subject = "Verify Your Email - Personal Finance Manager"
         
-        # Create verification URL (in production, this would be your frontend URL)
-        verification_url = f"http://localhost:3000/verify-email?token={verification_token}"
+        # Create verification URL using configured frontend hostname
+        verification_url = f"{settings.FRONTEND_HOSTNAME}/verify-email?token={verification_token}"
         
         html_content = f"""
         <!DOCTYPE html>

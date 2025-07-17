@@ -261,6 +261,7 @@ SECRET_KEY=your_secure_secret_key
 JWT_SECRET_KEY=your_secure_jwt_secret
 DATABASE_URL=your_production_database_url
 FIREBASE_SERVICE_ACCOUNT_JSON=your_firebase_service_account_json
+FRONTEND_HOSTNAME=https://your-domain.com
 ```
 
 ### Development Defaults
@@ -269,6 +270,7 @@ ENVIRONMENT=development
 SECRET_KEY=pfm_dev_secret_key_2024_xyz789_abcdefghijklmnopqrstuvwxyz123456789
 JWT_SECRET_KEY=pfm_dev_jwt_secret_2024_xyz789_abcdefghijklmnopqrstuvwxyz123456789
 DATABASE_URL=postgresql://pfm_user:pfm_dev_secure_2024_xyz789@postgres:5432/pfm_dev
+FRONTEND_HOSTNAME=http://localhost:3000
 ```
 
 ## Security Considerations

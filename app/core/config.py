@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
     
+    # Frontend URL for email links
+    FRONTEND_HOSTNAME: str = "http://localhost:3000"
+    
     # MFA Session
     MFA_SESSION_DAYS: int = 7
     
