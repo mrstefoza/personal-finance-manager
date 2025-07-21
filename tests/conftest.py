@@ -100,7 +100,7 @@ async def auth_headers(client, db_session):
     # Register a test user
     user_data = {
         "email": f"auth_test_{unique_id}@example.com",
-        "password": "Testpassword123",
+        "password": "Testpassword123!",
         "full_name": "Test User",
         "phone": "+37412345678",
         "user_type": "individual",
@@ -138,7 +138,7 @@ async def admin_headers(client, db_session):
     # Register an admin user
     user_data = {
         "email": f"admin_test_{unique_id}@example.com",
-        "password": "Adminpassword123",
+        "password": "Adminpassword123!",
         "full_name": "Admin User",
         "phone": "+37412345678",
         "user_type": "business",

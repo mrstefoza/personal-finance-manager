@@ -1,19 +1,76 @@
-from pydantic import BaseModel, EmailStr, ConfigDict, Field
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
+import re
 
 
 class UserCreate(BaseModel):
     """Schema for user registration"""
-    full_name: str
-    email: EmailStr
-    phone: str
-    password: str
-    user_type: str = "individual"
-    language_preference: str = "hy"
-    currency_preference: str = "AMD"
+    full_name: str = Field(..., min_length=1, max_length=100, description="User's full name")
+    email: EmailStr = Field(..., description="User's email address")
+    phone: str = Field(..., min_length=1, max_length=20, description="User's phone number")
+    password: str = Field(..., min_length=8, max_length=128, description="User's password")
+    user_type: str = Field(default="individual", pattern="^(individual|business)$", description="User type")
+    language_preference: str = Field(default="hy", pattern="^(hy|en|ru)$", description="Language preference")
+    currency_preference: str = Field(default="AMD", pattern="^(AMD|USD|EUR|RUB)$", description="Currency preference")
     profile_picture: Optional[str] = None
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        """Validate password strength"""
+        if not v or v.strip() == "":
+            raise ValueError("Password cannot be empty")
+        
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        
+        if len(v) > 128:
+            raise ValueError("Password must be no more than 128 characters long")
+        
+        # Check for at least one uppercase letter
+        if not re.search(r'[A-Z]', v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        
+        # Check for at least one lowercase letter
+        if not re.search(r'[a-z]', v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        
+        # Check for at least one digit
+        if not re.search(r'\d', v):
+            raise ValueError("Password must contain at least one digit")
+        
+        # Check for at least one special character
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
+            raise ValueError("Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)")
+        
+        return v
+    
+    @field_validator('full_name')
+    @classmethod
+    def validate_full_name(cls, v):
+        """Validate full name"""
+        if not v or v.strip() == "":
+            raise ValueError("Full name cannot be empty")
+        
+        if len(v.strip()) < 2:
+            raise ValueError("Full name must be at least 2 characters long")
+        
+        return v.strip()
+    
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        """Validate phone number"""
+        if not v or v.strip() == "":
+            raise ValueError("Phone number cannot be empty")
+        
+        # Basic phone validation - allows + and digits
+        if not re.match(r'^\+?[\d\s\-\(\)]+$', v):
+            raise ValueError("Phone number contains invalid characters")
+        
+        return v.strip()
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -21,7 +78,7 @@ class UserCreate(BaseModel):
                 "full_name": "John Doe",
                 "email": "john@example.com",
                 "phone": "+37412345678",
-                "password": "securepassword123",
+                "password": "SecurePass123!",
                 "user_type": "individual",
                 "language_preference": "hy",
                 "currency_preference": "AMD"
@@ -32,15 +89,23 @@ class UserCreate(BaseModel):
 
 class UserLogin(BaseModel):
     """Schema for user login"""
-    email: EmailStr
-    password: str
+    email: EmailStr = Field(..., description="User's email address")
+    password: str = Field(..., min_length=1, description="User's password")
     mfa_session_token: Optional[str] = None
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        """Validate password is not empty"""
+        if not v or v.strip() == "":
+            raise ValueError("Password cannot be empty")
+        return v
     
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "email": "john@example.com",
-                "password": "securepassword123"
+                "password": "SecurePass123!"
             }
         }
     )

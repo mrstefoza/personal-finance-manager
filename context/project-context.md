@@ -230,6 +230,13 @@ docker compose exec app alembic upgrade head --verbose
   - Removed hardcoded value from `docker-compose.yml` to allow `.env` override
 - **Email link configuration**: Now configurable via `.env` file for different environments
 - **Frontend updates**: Recent changes to `frontend/index.html`
+- **Fixed refresh token functionality**: 
+  - Added `store_refresh_token` method to UserService to store refresh tokens in database
+  - Updated login and MFA verification endpoints to store refresh tokens
+  - Updated refresh endpoint to store new refresh tokens and invalidate old ones
+  - Added unique JWT ID (jti) to refresh tokens to ensure uniqueness
+  - Added comprehensive tests for refresh token flow
+  - Fixed refresh token invalidation to prevent replay attacks
 
 ## Quick Reference Commands
 

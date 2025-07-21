@@ -23,7 +23,7 @@ async def test_register_user(client):
     
     user_data = {
         "email": f"test_{unique_id}@example.com",
-        "password": "Testpassword123",
+        "password": "Testpassword123!",
         "full_name": "Test User",
         "phone": "+37412345678",
         "user_type": "individual",
@@ -47,7 +47,7 @@ async def test_register_user_invalid_data(client):
     # Test with invalid email
     user_data = {
         "email": "invalid-email",
-        "password": "testpassword123",
+        "password": "Testpassword123!",
         "full_name": "Test User",
         "phone": "+37412345678",
         "user_type": "individual",
@@ -67,7 +67,7 @@ async def test_login_user(client, db_session):
     # First register a user
     user_data = {
         "email": f"test_{unique_id}@example.com",
-        "password": "Testpassword123",
+        "password": "Testpassword123!",
         "full_name": "Test User",
         "phone": "+37412345678",
         "user_type": "individual",
@@ -87,7 +87,7 @@ async def test_login_user(client, db_session):
     # Login with the user
     login_data = {
         "email": f"test_{unique_id}@example.com",
-        "password": "Testpassword123"
+        "password": "Testpassword123!"
     }
     
     response = await client.post("/api/v1/auth/login", json=login_data)
@@ -108,7 +108,7 @@ async def test_login_user_invalid_credentials(client, db_session):
     # First register a user
     user_data = {
         "email": f"test_{unique_id}@example.com",
-        "password": "Testpassword123",
+        "password": "Testpassword123!",
         "full_name": "Test User",
         "phone": "+37412345678",
         "user_type": "individual",
@@ -302,7 +302,7 @@ async def test_refresh_token(client, db_session):
     # Register a test user
     user_data = {
         "email": f"refresh_test_{unique_id}@example.com",
-        "password": "Testpassword123",
+        "password": "Testpassword123!",
         "full_name": "Test User",
         "phone": "+37412345678",
         "user_type": "individual",
@@ -363,7 +363,7 @@ async def test_refresh_token_complete_flow(client, db_session):
     # Register a test user
     user_data = {
         "email": f"refresh_flow_{unique_id}@example.com",
-        "password": "Testpassword123",
+        "password": "Testpassword123!",
         "full_name": "Test User",
         "phone": "+37412345678",
         "user_type": "individual",
@@ -425,6 +425,159 @@ async def test_refresh_token_complete_flow(client, db_session):
     old_refresh_data = {"refresh_token": initial_refresh_token}
     old_refresh_response = await client.post("/api/v1/auth/refresh", json=old_refresh_data)
     assert old_refresh_response.status_code == 401
+    
+    # Cleanup
+    await db_session.execute("DELETE FROM users WHERE id = $1", user_id) 
+
+@pytest.mark.asyncio
+async def test_registration_password_validation(client, db_session):
+    """Test that registration properly validates passwords"""
+    import uuid
+    unique_id = str(uuid.uuid4())[:8]
+    
+    # Test 1: Empty password
+    user_data_empty = {
+        "email": f"test_empty_{unique_id}@example.com",
+        "password": "",
+        "full_name": "Test User",
+        "phone": "+37412345678"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data_empty)
+    assert response.status_code == 422  # Validation error
+    
+    # Test 2: Whitespace-only password
+    user_data_whitespace = {
+        "email": f"test_whitespace_{unique_id}@example.com",
+        "password": "   ",
+        "full_name": "Test User",
+        "phone": "+37412345678"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data_whitespace)
+    assert response.status_code == 422  # Validation error
+    
+    # Test 3: Too short password
+    user_data_short = {
+        "email": f"test_short_{unique_id}@example.com",
+        "password": "Abc1!",
+        "full_name": "Test User",
+        "phone": "+37412345678"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data_short)
+    assert response.status_code == 422  # Validation error
+    
+    # Test 4: Missing uppercase letter
+    user_data_no_upper = {
+        "email": f"test_noupper_{unique_id}@example.com",
+        "password": "securepass123!",
+        "full_name": "Test User",
+        "phone": "+37412345678"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data_no_upper)
+    assert response.status_code == 422  # Validation error
+    
+    # Test 5: Missing lowercase letter
+    user_data_no_lower = {
+        "email": f"test_nolower_{unique_id}@example.com",
+        "password": "SECUREPASS123!",
+        "full_name": "Test User",
+        "phone": "+37412345678"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data_no_lower)
+    assert response.status_code == 422  # Validation error
+    
+    # Test 6: Missing digit
+    user_data_no_digit = {
+        "email": f"test_nodigit_{unique_id}@example.com",
+        "password": "SecurePass!",
+        "full_name": "Test User",
+        "phone": "+37412345678"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data_no_digit)
+    assert response.status_code == 422  # Validation error
+    
+    # Test 7: Missing special character
+    user_data_no_special = {
+        "email": f"test_nospecial_{unique_id}@example.com",
+        "password": "SecurePass123",
+        "full_name": "Test User",
+        "phone": "+37412345678"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data_no_special)
+    assert response.status_code == 422  # Validation error
+    
+    # Test 8: Valid password (should succeed)
+    user_data_valid = {
+        "email": f"test_valid_{unique_id}@example.com",
+        "password": "SecurePass123!",
+        "full_name": "Test User",
+        "phone": "+37412345678"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data_valid)
+    assert response.status_code == 201  # Success
+    
+    # Cleanup
+    user_id = response.json()["id"]
+    await db_session.execute("DELETE FROM users WHERE id = $1", user_id)
+
+
+@pytest.mark.asyncio
+async def test_login_password_validation(client, db_session):
+    """Test that login properly validates passwords"""
+    import uuid
+    unique_id = str(uuid.uuid4())[:8]
+    
+    # Create a test user first
+    user_data = {
+        "email": f"test_login_{unique_id}@example.com",
+        "password": "SecurePass123!",
+        "full_name": "Test User",
+        "phone": "+37412345678"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data)
+    assert response.status_code == 201
+    user_id = response.json()["id"]
+    
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
+    
+    # Test 1: Empty password
+    login_data_empty = {
+        "email": user_data["email"],
+        "password": ""
+    }
+    
+    response = await client.post("/api/v1/auth/login", json=login_data_empty)
+    assert response.status_code == 422  # Validation error
+    
+    # Test 2: Whitespace-only password
+    login_data_whitespace = {
+        "email": user_data["email"],
+        "password": "   "
+    }
+    
+    response = await client.post("/api/v1/auth/login", json=login_data_whitespace)
+    assert response.status_code == 422  # Validation error
+    
+    # Test 3: Valid password (should succeed)
+    login_data_valid = {
+        "email": user_data["email"],
+        "password": "SecurePass123!"
+    }
+    
+    response = await client.post("/api/v1/auth/login", json=login_data_valid)
+    assert response.status_code == 200  # Success
     
     # Cleanup
     await db_session.execute("DELETE FROM users WHERE id = $1", user_id) 
