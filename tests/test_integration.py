@@ -12,7 +12,7 @@ async def test_complete_auth_flow(client, db_session):
     # Step 1: Register a new user
     user_data = {
         "email": f"integration_{unique_id}@example.com",
-        "password": "Integrationpass123",
+        "password": "Integrationpass123!",
         "full_name": "Integration Test",
         "phone": "+37412345678",
         "user_type": "individual",
@@ -35,7 +35,7 @@ async def test_complete_auth_flow(client, db_session):
     # Step 2: Login with the registered user
     login_data = {
         "email": f"integration_{unique_id}@example.com",
-        "password": "Integrationpass123"
+        "password": "Integrationpass123!"
     }
     
     response = await client.post("/api/v1/auth/login", json=login_data)
@@ -63,7 +63,7 @@ async def test_complete_mfa_flow(client, db_session):
     # Step 1: Register and login
     user_data = {
         "email": f"mfa_{unique_id}@example.com",
-        "password": "Mfapass123",
+        "password": "Mfapass123!",
         "full_name": "MFA Test",
         "phone": "+37412345678",
         "user_type": "individual",
@@ -82,7 +82,7 @@ async def test_complete_mfa_flow(client, db_session):
 
     login_data = {
         "email": f"mfa_{unique_id}@example.com",
-        "password": "Mfapass123"
+        "password": "Mfapass123!"
     }
 
     response = await client.post("/api/v1/auth/login", json=login_data)
@@ -147,7 +147,7 @@ async def test_backup_codes_flow(client, db_session):
     # Step 1: Register, login, and setup TOTP
     user_data = {
         "email": f"backup_{unique_id}@example.com",
-        "password": "Backuppass123",
+        "password": "Backuppass123!",
         "full_name": "Backup Test",
         "phone": "+37412345678",
         "user_type": "individual",
@@ -166,7 +166,7 @@ async def test_backup_codes_flow(client, db_session):
 
     login_data = {
         "email": f"backup_{unique_id}@example.com",
-        "password": "Backuppass123"
+        "password": "Backuppass123!"
     }
 
     response = await client.post("/api/v1/auth/login", json=login_data)
@@ -214,7 +214,7 @@ async def test_mfa_login_flow(client, db_session):
     # Step 1: Register and setup TOTP
     user_data = {
         "email": f"mfa_login_{unique_id}@example.com",
-        "password": "Mfaloginpass123",
+        "password": "Mfaloginpass123!",
         "full_name": "MFALogin Test",
         "phone": "+37412345678",
         "user_type": "individual",
@@ -233,7 +233,7 @@ async def test_mfa_login_flow(client, db_session):
 
     login_data = {
         "email": f"mfa_login_{unique_id}@example.com",
-        "password": "Mfaloginpass123"
+        "password": "Mfaloginpass123!"
     }
 
     response = await client.post("/api/v1/auth/login", json=login_data)
