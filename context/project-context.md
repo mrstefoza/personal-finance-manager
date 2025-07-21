@@ -237,6 +237,12 @@ docker compose exec app alembic upgrade head --verbose
   - Added unique JWT ID (jti) to refresh tokens to ensure uniqueness
   - Added comprehensive tests for refresh token flow
   - Fixed refresh token invalidation to prevent replay attacks
+- **Fixed critical security bug - Empty password vulnerability**: 
+  - Added comprehensive password validation to UserCreate and UserLogin schemas
+  - Implemented strong password requirements (8-128 chars, uppercase, lowercase, digit, special char)
+  - Added validation for full_name and phone fields
+  - Added comprehensive tests for password validation scenarios
+  - Fixed critical security vulnerability that allowed empty passwords during registration
 
 ## Quick Reference Commands
 

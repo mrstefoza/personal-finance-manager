@@ -68,40 +68,9 @@ async def delete_profile(
                 detail="User not found"
             )
         
-        return {"message": "User profile deleted successfully"}
+        return {"message": "Profile deleted successfully"}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
-        )
-
-
-@router.get("/sessions")
-async def get_sessions(
-    current_user: dict = Depends(get_current_user),
-    db: Database = Depends(get_database)
-):
-    """Get user active sessions"""
-    # TODO: Implement session management
-    # For now, return a placeholder response
-    return {
-        "sessions": [
-            {
-                "id": "session_id_1",
-                "device_info": {"browser": "Chrome", "os": "Windows"},
-                "created_at": "2024-01-01T00:00:00Z",
-                "last_used_at": "2024-01-01T12:00:00Z"
-            }
-        ]
-    }
-
-
-@router.delete("/sessions/{session_id}")
-async def revoke_session(
-    session_id: str,
-    current_user: dict = Depends(get_current_user),
-    db: Database = Depends(get_database)
-):
-    """Revoke a specific session"""
-    # TODO: Implement session revocation
-    return {"message": f"Session {session_id} revoked successfully"} 
+        ) 
