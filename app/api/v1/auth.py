@@ -3,7 +3,7 @@ from app.core.database import Database
 from app.services.user_service import UserService
 from app.services.mfa_service import MFAService
 from app.services.firebase_service import FirebaseService
-from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, RefreshTokenRequest, FirebaseLoginRequest, OAuthLoginResponse
+from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, RefreshTokenRequest, FirebaseLoginRequest, OAuthLoginResponse, ResendVerificationRequest, ResendVerificationResponse, EmailVerificationRequest, EmailVerificationResponse
 from app.schemas.mfa import LoginResponse, MFALoginVerifyRequest
 from app.api.deps import get_database, get_current_user
 from app.utils.jwt import JWTManager
@@ -315,14 +315,14 @@ async def refresh_token(
         )
 
 
-@router.post("/verify-email")
+@router.post("/verify-email", response_model=EmailVerificationResponse)
 async def verify_email(
-    request: dict,
+    request: EmailVerificationRequest,
     db: Database = Depends(get_database)
 ):
     """Verify user email with token"""
     try:
-        token = request.get("token")
+        token = request.token
         if not token:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -333,10 +333,10 @@ async def verify_email(
         success = await user_service.verify_email(token)
         
         if success:
-            return {
-                "message": "Email verified successfully! You can now log in to your account.",
-                "verified": True
-            }
+            return EmailVerificationResponse(
+                message="Email verified successfully! You can now log in to your account.",
+                verified=True
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -355,21 +355,21 @@ async def verify_email(
         )
 
 
-@router.post("/resend-verification")
+@router.post("/resend-verification", response_model=ResendVerificationResponse)
 async def resend_verification_email(
-    email: str,
+    request: ResendVerificationRequest,
     db: Database = Depends(get_database)
 ):
     """Resend verification email"""
     try:
         user_service = UserService(db)
-        success = await user_service.resend_verification_email(email)
+        success = await user_service.resend_verification_email(request.email)
         
         if success:
-            return {
-                "message": "Verification email sent successfully! Please check your inbox.",
-                "sent": True
-            }
+            return ResendVerificationResponse(
+                message="Verification email sent successfully! Please check your inbox.",
+                sent=True
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
