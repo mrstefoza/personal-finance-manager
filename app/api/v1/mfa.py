@@ -31,7 +31,8 @@ async def get_mfa_status(
 @router.post("/totp/setup", response_model=TOTPSetupResponse)
 async def setup_totp(
     current_user: dict = Depends(get_current_user),
-    db: Database = Depends(get_database)
+    db: Database = Depends(get_database),
+    token: str = Depends(security)
 ):
     """Setup TOTP MFA for current user"""
     try:
@@ -62,7 +63,8 @@ async def setup_totp(
 async def verify_totp_setup(
     request: TOTPVerifyRequest,
     current_user: dict = Depends(get_current_user),
-    db: Database = Depends(get_database)
+    db: Database = Depends(get_database),
+    token: str = Depends(security)
 ):
     """Verify TOTP code during setup and enable TOTP"""
     try:
@@ -100,7 +102,8 @@ async def verify_totp_setup(
 async def disable_totp(
     request: TOTPDisableRequest,
     current_user: dict = Depends(get_current_user),
-    db: Database = Depends(get_database)
+    db: Database = Depends(get_database),
+    token: str = Depends(security)
 ):
     """Disable TOTP MFA for current user"""
     try:
@@ -134,6 +137,7 @@ async def verify_totp_login(
     request: TOTPVerifyRequest,
     current_user: dict = Depends(get_current_user),
     db: Database = Depends(get_database),
+    token: str = Depends(security),
     http_request: Request = None
 ):
     """Verify TOTP code during login"""
@@ -183,7 +187,8 @@ async def verify_totp_login(
 async def setup_email_mfa(
     request: EmailMFASetupRequest,
     current_user: dict = Depends(get_current_user),
-    db: Database = Depends(get_database)
+    db: Database = Depends(get_database),
+    token: str = Depends(security)
 ):
     """Setup email MFA for current user"""
     try:
@@ -269,6 +274,7 @@ async def verify_email_mfa(
     request: EmailMFAVerifyRequest,
     current_user: dict = Depends(get_current_user),
     db: Database = Depends(get_database),
+    token: str = Depends(security),
     http_request: Request = None
 ):
     """Verify email MFA code"""
@@ -315,7 +321,8 @@ async def verify_email_mfa(
 @router.post("/email/disable", response_model=MFAResponse)
 async def disable_email_mfa(
     current_user: dict = Depends(get_current_user),
-    db: Database = Depends(get_database)
+    db: Database = Depends(get_database),
+    token: str = Depends(security)
 ):
     """Disable email MFA for current user"""
     try:
@@ -345,6 +352,7 @@ async def verify_backup_code(
     request: BackupCodeVerifyRequest,
     current_user: dict = Depends(get_current_user),
     db: Database = Depends(get_database),
+    token: str = Depends(security),
     http_request: Request = None
 ):
     """Verify backup code during login"""
