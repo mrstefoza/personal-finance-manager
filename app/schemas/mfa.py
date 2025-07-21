@@ -11,6 +11,7 @@ class TOTPSetupRequest(BaseModel):
 class TOTPSetupResponse(BaseModel):
     """Response for TOTP setup with QR code and secret"""
     qr_code_url: str
+    qr_code_image: str  # Base64 encoded PNG image
     secret: str
     backup_codes: list[str]
 
