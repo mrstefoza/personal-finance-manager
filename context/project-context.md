@@ -200,25 +200,36 @@ docker compose exec app alembic upgrade head --verbose
 - Basic infrastructure implemented
 - User registration and authentication
 - JWT token management
-- TOTP MFA setup and verification
-- Email confirmation system
-- Firebase Authentication integration
-- Frontend demo with MFA flows
+- **TOTP MFA**: Fully implemented with QR codes, backup codes, and verification
+- **Email MFA**: Fully implemented with code generation and verification
+- **Firebase Authentication**: Google OAuth via Firebase Admin SDK
+- Frontend demo with complete MFA workflows
 - Database migration system
 - Deployment automation
+- Configurable email hostname via FRONTEND_HOSTNAME environment variable
+- Environment variable management (.env file support)
+- **46 comprehensive tests** covering authentication, MFA, and integration flows
 
 ### ⚠️ Current Issues
-- Limited test coverage (only 4 basic tests)
-- Missing integration tests for MFA flows
 - No automated test execution on code changes
 - Manual debugging required for production issues
 
 ### 🔄 Next Priorities
-1. Implement comprehensive test suite according to testing strategy
-2. Add automated test execution on code changes
-3. Complete Firebase setup and testing
-4. Implement email MFA with actual email sending
-5. Add proper error handling and validation
+1. Add automated test execution on code changes
+2. Implement email MFA with actual email sending (currently using development mode)
+3. Add proper error handling and validation
+4. Add financial management features
+5. Enhanced security features
+
+### 🔧 Recent Changes (Latest Session)
+- **Fixed hardcoded hostname in email links**: Added `FRONTEND_HOSTNAME` environment variable
+- **Environment variable configuration**: 
+  - Added `FRONTEND_HOSTNAME` to `app/core/config.py` with default `http://localhost:3000`
+  - Updated `app/services/email_service.py` to use `settings.FRONTEND_HOSTNAME`
+  - Added to `.env` and `.env.example` files
+  - Removed hardcoded value from `docker-compose.yml` to allow `.env` override
+- **Email link configuration**: Now configurable via `.env` file for different environments
+- **Frontend updates**: Recent changes to `frontend/index.html`
 
 ## Quick Reference Commands
 

@@ -25,7 +25,7 @@ async def register(
         
         # Return user data but inform about email verification requirement
         return {
-            **new_user.dict(),
+            **new_user.model_dump(),
             "message": "Registration successful! Please check your email to verify your account before logging in."
         }
     except ValueError as e:

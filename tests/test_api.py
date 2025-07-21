@@ -269,3 +269,26 @@ async def test_send_email_mfa_code_when_not_enabled(client, auth_headers):
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "Email MFA is not enabled" 
+
+@pytest.mark.asyncio
+async def test_update_profile(client, auth_headers):
+    """Test updating user profile"""
+    # Test data for profile update
+    update_data = {
+        "full_name": "Updated Name",
+        "phone": "+37498765432",
+        "language_preference": "en",
+        "currency_preference": "USD"
+    }
+    
+    response = await client.put("/api/v1/users/profile", json=update_data, headers=auth_headers)
+    print(f"Response status: {response.status_code}")
+    print(f"Response body: {response.text}")
+    
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert data["full_name"] == update_data["full_name"]
+    assert data["phone"] == update_data["phone"]
+    assert data["language_preference"] == update_data["language_preference"]
+    assert data["currency_preference"] == update_data["currency_preference"] 

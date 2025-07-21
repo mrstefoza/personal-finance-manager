@@ -307,7 +307,7 @@ class UserService:
         values = []
         param_count = 1
         
-        for field, value in update_data.dict(exclude_unset=True).items():
+        for field, value in update_data.model_dump(exclude_unset=True).items():
             if value is not None:
                 update_fields.append(f"{field} = ${param_count}")
                 values.append(value)
@@ -316,9 +316,10 @@ class UserService:
         if not update_fields:
             return await self.get_user_by_id(user_id)
         
-        # Add updated_at timestamp
-        update_fields.append("updated_at = $1")
-        values.insert(0, datetime.utcnow())
+        # Add updated_at timestamp with correct parameter number
+        update_fields.append(f"updated_at = ${param_count}")
+        values.append(datetime.utcnow())
+        param_count += 1
         
         query = f"""
         UPDATE users 
@@ -326,6 +327,7 @@ class UserService:
         WHERE id = ${param_count} AND deleted_at IS NULL
         RETURNING *
         """
+        
         values.append(user_id)
         
         result = await self.db.fetchrow(query, *values)
