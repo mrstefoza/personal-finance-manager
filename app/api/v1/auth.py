@@ -76,6 +76,9 @@ async def login(
                     # Valid MFA session token, skip MFA and return full tokens
                     tokens = JWTManager.create_user_tokens(user["id"], user["email"])
                     
+                    # Store refresh token in database
+                    await user_service.store_refresh_token(user["id"], tokens["refresh_token"])
+                    
                     return LoginResponse(
                         requires_mfa=False,
                         access_token=tokens["access_token"],
@@ -119,6 +122,9 @@ async def login(
         else:
             # No MFA required, return full tokens
             tokens = JWTManager.create_user_tokens(user["id"], user["email"])
+            
+            # Store refresh token in database
+            await user_service.store_refresh_token(user["id"], tokens["refresh_token"])
             
             return LoginResponse(
                 requires_mfa=False,
@@ -221,6 +227,9 @@ async def verify_mfa_login(
         # Generate full tokens
         tokens = JWTManager.create_user_tokens(user_id, email)
         
+        # Store refresh token in database
+        await user_service.store_refresh_token(user_id, tokens["refresh_token"])
+        
         # If user wants to remember this device, also create an MFA session token
         if mfa_request.remember_device:
             mfa_session_token = JWTManager.create_mfa_session_token(user_id, email)
@@ -284,6 +293,16 @@ async def refresh_token(
         
         # Generate new tokens
         tokens = JWTManager.create_user_tokens(user_id, email)
+        
+        # Store new refresh token in database
+        user_service = UserService(db)
+        await user_service.store_refresh_token(user_id, tokens["refresh_token"])
+        
+        # Invalidate the old refresh token
+        await db.execute(
+            "UPDATE user_sessions SET is_active = FALSE WHERE refresh_token_hash = $1",
+            token_hash
+        )
         
         return tokens
         

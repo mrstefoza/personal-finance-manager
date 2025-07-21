@@ -292,3 +292,139 @@ async def test_update_profile(client, auth_headers):
     assert data["phone"] == update_data["phone"]
     assert data["language_preference"] == update_data["language_preference"]
     assert data["currency_preference"] == update_data["currency_preference"] 
+
+@pytest.mark.asyncio
+async def test_refresh_token(client, db_session):
+    """Test refreshing access token"""
+    import uuid
+    unique_id = str(uuid.uuid4())[:8]
+    
+    # Register a test user
+    user_data = {
+        "email": f"refresh_test_{unique_id}@example.com",
+        "password": "Testpassword123",
+        "full_name": "Test User",
+        "phone": "+37412345678",
+        "user_type": "individual",
+        "language_preference": "en",
+        "currency_preference": "USD"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data)
+    assert response.status_code == 201
+    user_id = response.json()["id"]
+    
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
+    
+    # Login to get refresh token
+    login_data = {
+        "email": user_data["email"],
+        "password": user_data["password"]
+    }
+    
+    login_response = await client.post("/api/v1/auth/login", json=login_data)
+    assert login_response.status_code == 200
+    
+    login_response_data = login_response.json()
+    assert "refresh_token" in login_response_data
+    
+    refresh_token = login_response_data["refresh_token"]
+    
+    # Now test the refresh endpoint
+    refresh_data = {
+        "refresh_token": refresh_token
+    }
+    
+    refresh_response = await client.post("/api/v1/auth/refresh", json=refresh_data)
+    print(f"Refresh response status: {refresh_response.status_code}")
+    print(f"Refresh response body: {refresh_response.text}")
+    
+    assert refresh_response.status_code == 200
+    
+    refresh_response_data = refresh_response.json()
+    assert "access_token" in refresh_response_data
+    assert "refresh_token" in refresh_response_data
+    assert "token_type" in refresh_response_data
+    assert refresh_response_data["token_type"] == "bearer"
+    
+    # Cleanup
+    await db_session.execute("DELETE FROM users WHERE id = $1", user_id) 
+
+@pytest.mark.asyncio
+async def test_refresh_token_complete_flow(client, db_session):
+    """Test complete refresh token flow including using new tokens"""
+    import uuid
+    unique_id = str(uuid.uuid4())[:8]
+    
+    # Register a test user
+    user_data = {
+        "email": f"refresh_flow_{unique_id}@example.com",
+        "password": "Testpassword123",
+        "full_name": "Test User",
+        "phone": "+37412345678",
+        "user_type": "individual",
+        "language_preference": "en",
+        "currency_preference": "USD"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data)
+    assert response.status_code == 201
+    user_id = response.json()["id"]
+    
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
+    
+    # Login to get initial tokens
+    login_data = {
+        "email": user_data["email"],
+        "password": user_data["password"]
+    }
+    
+    login_response = await client.post("/api/v1/auth/login", json=login_data)
+    assert login_response.status_code == 200
+    
+    login_response_data = login_response.json()
+    initial_access_token = login_response_data["access_token"]
+    initial_refresh_token = login_response_data["refresh_token"]
+    
+    # Use initial access token to access protected endpoint
+    initial_headers = {"Authorization": f"Bearer {initial_access_token}"}
+    profile_response = await client.get("/api/v1/users/profile", headers=initial_headers)
+    assert profile_response.status_code == 200
+    
+    # Now refresh the tokens
+    refresh_data = {"refresh_token": initial_refresh_token}
+    refresh_response = await client.post("/api/v1/auth/refresh", json=refresh_data)
+    assert refresh_response.status_code == 200
+    
+    refresh_response_data = refresh_response.json()
+    new_access_token = refresh_response_data["access_token"]
+    new_refresh_token = refresh_response_data["refresh_token"]
+    
+    # Verify new tokens are different from initial tokens
+    # Access tokens might be the same if they're still valid, but refresh tokens should be different
+    assert new_refresh_token != initial_refresh_token
+    
+    # Use new access token to access protected endpoint
+    new_headers = {"Authorization": f"Bearer {new_access_token}"}
+    profile_response2 = await client.get("/api/v1/users/profile", headers=new_headers)
+    assert profile_response2.status_code == 200
+    
+    # Verify old access token still works (until it expires)
+    profile_response3 = await client.get("/api/v1/users/profile", headers=initial_headers)
+    assert profile_response3.status_code == 200
+    
+    # Test that old refresh token is invalidated (should fail)
+    old_refresh_data = {"refresh_token": initial_refresh_token}
+    old_refresh_response = await client.post("/api/v1/auth/refresh", json=old_refresh_data)
+    assert old_refresh_response.status_code == 401
+    
+    # Cleanup
+    await db_session.execute("DELETE FROM users WHERE id = $1", user_id) 

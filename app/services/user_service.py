@@ -334,11 +334,31 @@ class UserService:
         return dict(result) if result else None
     
     async def delete_user(self, user_id: uuid.UUID) -> bool:
-        """Soft delete a user"""
+        """Delete a user (soft delete)"""
         query = """
         UPDATE users 
-        SET deleted_at = $1, profile_status = 'inactive'
+        SET deleted_at = $1 
         WHERE id = $2 AND deleted_at IS NULL
         """
         result = await self.db.execute(query, datetime.utcnow(), user_id)
-        return result == "UPDATE 1" 
+        return result == "DELETE 1"
+    
+    async def store_refresh_token(self, user_id: uuid.UUID, refresh_token: str) -> None:
+        """Store refresh token hash in user_sessions table"""
+        import hashlib
+        from datetime import datetime, timedelta
+        from app.core.config import settings
+        
+        # Hash the refresh token
+        token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+        
+        # Calculate expiration time
+        expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        
+        # Store in user_sessions table
+        query = """
+        INSERT INTO user_sessions (user_id, refresh_token_hash, expires_at, is_active)
+        VALUES ($1, $2, $3, TRUE)
+        """
+        
+        await self.db.execute(query, user_id, token_hash, expires_at) 

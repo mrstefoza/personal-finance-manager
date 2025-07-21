@@ -39,7 +39,13 @@ class JWTManager:
         else:
             expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         
-        to_encode.update({"exp": expire, "type": "refresh"})
+        # Add a unique identifier to make each refresh token unique
+        import uuid
+        to_encode.update({
+            "exp": expire, 
+            "type": "refresh",
+            "jti": str(uuid.uuid4())  # JWT ID - unique identifier
+        })
         encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm="HS256")
         return encoded_jwt
     
