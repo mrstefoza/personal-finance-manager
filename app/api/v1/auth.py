@@ -407,19 +407,19 @@ async def firebase_login(
 
 @router.post("/logout")
 async def logout(
-    refresh_token: str,
+    refresh_request: RefreshTokenRequest,
     db: Database = Depends(get_database)
 ):
     """Logout user and revoke refresh token"""
     try:
         # Hash the refresh token
         import hashlib
-        token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+        token_hash = hashlib.sha256(refresh_request.refresh_token.encode()).hexdigest()
         
         # Mark session as inactive
         query = """
         UPDATE user_sessions 
-        SET is_active = FALSE, updated_at = $1
+        SET is_active = FALSE, last_used_at = $1
         WHERE refresh_token_hash = $2
         """
         await db.execute(query, datetime.utcnow(), token_hash)
@@ -430,7 +430,7 @@ async def logout(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
-        ) 
+        )
 
 
 @router.post("/validate-token")
