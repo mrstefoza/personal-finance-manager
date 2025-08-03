@@ -12,6 +12,13 @@ This folder contains all the architectural decisions, database schemas, and tech
 - Changing database schema or migration procedures
 - Updating security measures or authentication flows
 
+**CRITICAL**: Before implementing any new endpoints, schemas, or validation changes:
+- **ALWAYS discuss constraints and validation requirements first** with the user
+- **Review existing validation patterns** in similar endpoints
+- **Ensure consistency** with current validation rules
+- **Consider security implications** of any new input validation
+- **Plan error messages** that are user-friendly and informative
+
 **Keep this context current and comprehensive for future reference and troubleshooting.**
 
 ## Project Overview
@@ -70,6 +77,59 @@ This folder contains all the architectural decisions, database schemas, and tech
 - ✅ Hot reload for development
 - ✅ Automated migration system with Alembic
 - ✅ Helper scripts for common tasks
+
+### Validation Standards
+- ✅ **Consistent validation patterns** across all endpoints
+- ✅ **Security-first approach** to input validation
+- ✅ **User-friendly error messages** with clear guidance
+- ✅ **Comprehensive field constraints** (length, format, content)
+- ✅ **Optional field handling** with proper null checks
+
+## Validation Patterns & Standards
+
+### Current Validation Rules
+
+#### User Registration (`UserCreate`)
+- **full_name**: 2-50 characters, non-empty, trimmed
+- **email**: Valid email format, RFC 5321 compliant
+- **phone**: 1-20 characters, must start with `+`, format: `^\+[\d\s\-\(\)]+$`
+- **password**: 8-128 characters, uppercase, lowercase, digit, special char
+- **user_type**: Pattern `^(individual|business)$`
+- **language_preference**: Pattern `^(hy|en|ru)$`
+- **currency_preference**: Pattern `^(AMD|USD|EUR|RUB)$`
+
+#### Profile Updates (`UserUpdate`)
+- **Same validation as registration** for consistency
+- **All fields optional** with proper null handling
+- **profile_picture**: Valid URL with image extensions (.jpg, .jpeg, .png, .gif, .webp, .svg)
+
+#### MFA Endpoints
+- **TOTP codes**: 6-digit numbers only
+- **Email MFA codes**: 6-digit numbers only
+- **Email addresses**: Valid format, RFC 5321 compliant
+- **Backup codes**: 8-digit numbers only
+
+#### Authentication Endpoints
+- **JWT tokens**: Proper validation and verification
+- **Refresh tokens**: Database existence check
+- **Login attempts**: Rate limiting and account lockout
+
+### Validation Best Practices
+1. **Always validate input** before processing
+2. **Use consistent patterns** across similar endpoints
+3. **Provide clear error messages** with actionable guidance
+4. **Consider security implications** of all validations
+5. **Handle optional fields** properly with null checks
+6. **Trim whitespace** where appropriate
+7. **Use regex patterns** for format validation
+8. **Set reasonable length limits** for all fields
+
+### Security Considerations
+- **No information disclosure** through validation errors
+- **Rate limiting** on sensitive endpoints
+- **Input sanitization** to prevent injection attacks
+- **Token validation** before any operations
+- **Audit logging** for security-relevant actions
 
 ## Database Migration System
 
