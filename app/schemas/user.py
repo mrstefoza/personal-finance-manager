@@ -7,7 +7,7 @@ import re
 
 class UserCreate(BaseModel):
     """Schema for user registration"""
-    full_name: str = Field(..., min_length=1, max_length=100, description="User's full name")
+    full_name: str = Field(..., min_length=2, max_length=50, description="User's full name")
     email: EmailStr = Field(..., description="User's email address")
     phone: str = Field(..., min_length=1, max_length=20, description="User's phone number")
     password: str = Field(..., min_length=8, max_length=128, description="User's password")
@@ -66,8 +66,12 @@ class UserCreate(BaseModel):
         if not v or v.strip() == "":
             raise ValueError("Phone number cannot be empty")
         
-        # Basic phone validation - allows + and digits
-        if not re.match(r'^\+?[\d\s\-\(\)]+$', v):
+        # Phone number must start with +
+        if not v.strip().startswith('+'):
+            raise ValueError("Phone number must start with +")
+        
+        # Basic phone validation - allows digits, spaces, hyphens, and parentheses
+        if not re.match(r'^\+[\d\s\-\(\)]+$', v):
             raise ValueError("Phone number contains invalid characters")
         
         return v.strip()
@@ -113,11 +117,85 @@ class UserLogin(BaseModel):
 
 class UserUpdate(BaseModel):
     """Schema for user profile updates"""
-    full_name: Optional[str] = None
-    phone: Optional[str] = None
-    language_preference: Optional[str] = None
-    currency_preference: Optional[str] = None
-    profile_picture: Optional[str] = None
+    full_name: Optional[str] = Field(None, min_length=2, max_length=50, description="User's full name")
+    phone: Optional[str] = Field(None, min_length=1, max_length=20, description="User's phone number")
+    language_preference: Optional[str] = Field(None, pattern="^(hy|en|ru)$", description="Language preference")
+    currency_preference: Optional[str] = Field(None, pattern="^(AMD|USD|EUR|RUB)$", description="Currency preference")
+    profile_picture: Optional[str] = Field(None, description="URL to user's profile picture")
+    
+    @field_validator('full_name')
+    @classmethod
+    def validate_full_name(cls, v):
+        """Validate full name"""
+        if v is not None:
+            if not v or v.strip() == "":
+                raise ValueError("Full name cannot be empty")
+            
+            if len(v.strip()) < 2:
+                raise ValueError("Full name must be at least 2 characters long")
+            
+            return v.strip()
+        return v
+    
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        """Validate phone number"""
+        if v is not None:
+            if not v or v.strip() == "":
+                raise ValueError("Phone number cannot be empty")
+            
+            # Phone number must start with +
+            if not v.strip().startswith('+'):
+                raise ValueError("Phone number must start with +")
+            
+            # Basic phone validation - allows digits, spaces, hyphens, and parentheses
+            if not re.match(r'^\+[\d\s\-\(\)]+$', v):
+                raise ValueError("Phone number contains invalid characters")
+            
+            return v.strip()
+        return v
+    
+    @field_validator('profile_picture')
+    @classmethod
+    def validate_profile_picture(cls, v):
+        """Validate profile picture URL"""
+        if v is not None:
+            if not v or v.strip() == "":
+                raise ValueError("Profile picture URL cannot be empty")
+            
+            # Basic URL validation
+            import re
+            url_pattern = re.compile(
+                r'^https?://'  # http:// or https://
+                r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+                r'localhost|'  # localhost...
+                r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+                r'(?::\d+)?'  # optional port
+                r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+            
+            if not url_pattern.match(v.strip()):
+                raise ValueError("Profile picture must be a valid URL")
+            
+            # Check for common image file extensions
+            image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
+            if not any(v.lower().endswith(ext) for ext in image_extensions):
+                raise ValueError("Profile picture URL must end with a valid image extension (.jpg, .jpeg, .png, .gif, .webp, .svg)")
+            
+            return v.strip()
+        return v
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "full_name": "John Doe",
+                "phone": "+37412345678",
+                "language_preference": "hy",
+                "currency_preference": "AMD",
+                "profile_picture": "https://example.com/profile.jpg"
+            }
+        }
+    )
 
 
 class UserResponse(BaseModel):

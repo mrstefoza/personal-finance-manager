@@ -412,20 +412,45 @@ async def logout(
 ):
     """Logout user and revoke refresh token"""
     try:
+        # First, validate the refresh token
+        try:
+            payload = JWTManager.verify_token(refresh_request.refresh_token, "refresh")
+            user_id = payload.get("sub")
+            if not user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid refresh token"
+                )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+        
         # Hash the refresh token
         import hashlib
         token_hash = hashlib.sha256(refresh_request.refresh_token.encode()).hexdigest()
         
-        # Mark session as inactive
+        # Mark session as inactive and check if any rows were affected
         query = """
         UPDATE user_sessions 
         SET is_active = FALSE, last_used_at = $1
-        WHERE refresh_token_hash = $2
+        WHERE refresh_token_hash = $2 AND is_active = TRUE
         """
-        await db.execute(query, datetime.utcnow(), token_hash)
+        result = await db.execute(query, datetime.utcnow(), token_hash)
+        
+        # Check if the token was actually found and revoked
+        if result.rowcount == 0:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or already revoked refresh token"
+            )
         
         return {"message": "Logged out successfully"}
         
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

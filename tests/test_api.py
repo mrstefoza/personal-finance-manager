@@ -581,3 +581,73 @@ async def test_login_password_validation(client, db_session):
     
     # Cleanup
     await db_session.execute("DELETE FROM users WHERE id = $1", user_id) 
+
+@pytest.mark.asyncio
+async def test_refresh_token_debug(client, db_session):
+    """Debug test to check refresh token flow manually"""
+    import uuid
+    unique_id = str(uuid.uuid4())[:8]
+    
+    # Register a test user
+    user_data = {
+        "email": f"debug_refresh_{unique_id}@example.com",
+        "password": "Testpassword123!",
+        "full_name": "Test User",
+        "phone": "+37412345678",
+        "user_type": "individual",
+        "language_preference": "en",
+        "currency_preference": "USD"
+    }
+    
+    response = await client.post("/api/v1/auth/register", json=user_data)
+    assert response.status_code == 201
+    user_id = response.json()["id"]
+    
+    # Verify the user
+    await db_session.execute(
+        "UPDATE users SET profile_status = 'active', email_verified = TRUE WHERE id = $1",
+        user_id
+    )
+    
+    # Login to get refresh token
+    login_data = {
+        "email": user_data["email"],
+        "password": user_data["password"]
+    }
+    
+    login_response = await client.post("/api/v1/auth/login", json=login_data)
+    assert login_response.status_code == 200
+    
+    login_response_data = login_response.json()
+    print(f"Login response: {login_response_data}")
+    
+    refresh_token = login_response_data["refresh_token"]
+    print(f"Refresh token: {refresh_token[:50]}...")
+    
+    # Check if refresh token is stored in database
+    import hashlib
+    token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+    
+    session_query = """
+    SELECT * FROM user_sessions 
+    WHERE user_id = $1 AND refresh_token_hash = $2 AND is_active = TRUE
+    """
+    
+    session = await db_session.fetchrow(session_query, user_id, token_hash)
+    print(f"Session found in DB: {session is not None}")
+    if session:
+        print(f"Session data: {dict(session)}")
+    
+    # Now test the refresh endpoint
+    refresh_data = {
+        "refresh_token": refresh_token
+    }
+    
+    refresh_response = await client.post("/api/v1/auth/refresh", json=refresh_data)
+    print(f"Refresh response status: {refresh_response.status_code}")
+    print(f"Refresh response body: {refresh_response.text}")
+    
+    assert refresh_response.status_code == 200
+    
+    # Cleanup
+    await db_session.execute("DELETE FROM users WHERE id = $1", user_id) 

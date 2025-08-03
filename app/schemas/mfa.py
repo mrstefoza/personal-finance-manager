@@ -48,6 +48,35 @@ class EmailMFASetupRequest(BaseModel):
 class EmailMFASendCodeRequest(BaseModel):
     """Request to send email MFA code"""
     email: str
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        """Validate email format"""
+        if not v or v.strip() == "":
+            raise ValueError("Email cannot be empty")
+        
+        # Basic email format validation
+        import re
+        email_pattern = re.compile(
+            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        )
+        
+        if not email_pattern.match(v.strip()):
+            raise ValueError("Invalid email format")
+        
+        # Check length (reasonable limits)
+        if len(v.strip()) > 254:  # RFC 5321 limit
+            raise ValueError("Email address too long")
+        
+        # Check for common invalid patterns
+        if v.strip().startswith('.') or v.strip().endswith('.'):
+            raise ValueError("Email cannot start or end with a dot")
+        
+        if '..' in v.strip():
+            raise ValueError("Email cannot contain consecutive dots")
+        
+        return v.strip()
 
 
 class EmailMFAVerifyRequest(BaseModel):
