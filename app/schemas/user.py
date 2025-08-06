@@ -9,7 +9,7 @@ class UserCreate(BaseModel):
     """Schema for user registration"""
     full_name: str = Field(..., min_length=2, max_length=50, description="User's full name")
     email: EmailStr = Field(..., description="User's email address")
-    phone: str = Field(..., min_length=1, max_length=20, description="User's phone number")
+    phone: str = Field(..., min_length=8, max_length=20, description="User's phone number")
     password: str = Field(..., min_length=8, max_length=128, description="User's password")
     user_type: str = Field(default="individual", pattern="^(individual|business)$", description="User type")
     language_preference: str = Field(default="hy", pattern="^(hy|en|ru)$", description="Language preference")
@@ -70,6 +70,10 @@ class UserCreate(BaseModel):
         if not v.strip().startswith('+'):
             raise ValueError("Phone number must start with +")
         
+        # Check minimum length (excluding the + sign)
+        if len(v.strip()) < 8:
+            raise ValueError("Phone number must be at least 8 characters long")
+        
         # Basic phone validation - allows digits, spaces, hyphens, and parentheses
         if not re.match(r'^\+[\d\s\-\(\)]+$', v):
             raise ValueError("Phone number contains invalid characters")
@@ -118,7 +122,7 @@ class UserLogin(BaseModel):
 class UserUpdate(BaseModel):
     """Schema for user profile updates"""
     full_name: Optional[str] = Field(None, min_length=2, max_length=50, description="User's full name")
-    phone: Optional[str] = Field(None, min_length=1, max_length=20, description="User's phone number")
+    phone: Optional[str] = Field(None, min_length=8, max_length=20, description="User's phone number")
     language_preference: Optional[str] = Field(None, pattern="^(hy|en|ru)$", description="Language preference")
     currency_preference: Optional[str] = Field(None, pattern="^(AMD|USD|EUR|RUB)$", description="Currency preference")
     profile_picture: Optional[str] = Field(None, description="URL to user's profile picture")
@@ -148,6 +152,10 @@ class UserUpdate(BaseModel):
             # Phone number must start with +
             if not v.strip().startswith('+'):
                 raise ValueError("Phone number must start with +")
+            
+            # Check minimum length (excluding the + sign)
+            if len(v.strip()) < 8:
+                raise ValueError("Phone number must be at least 8 characters long")
             
             # Basic phone validation - allows digits, spaces, hyphens, and parentheses
             if not re.match(r'^\+[\d\s\-\(\)]+$', v):
