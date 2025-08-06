@@ -72,7 +72,7 @@ class UserCreate(BaseModel):
         
         # Check minimum length (excluding the + sign)
         if len(v.strip()) < 8:
-            raise ValueError("Phone number must be at least 8 characters long")
+            raise ValueError("Phone number must be between 8 and 20 characters long")
         
         # Basic phone validation - allows digits, spaces, hyphens, and parentheses
         if not re.match(r'^\+[\d\s\-\(\)]+$', v):
@@ -155,7 +155,7 @@ class UserUpdate(BaseModel):
             
             # Check minimum length (excluding the + sign)
             if len(v.strip()) < 8:
-                raise ValueError("Phone number must be at least 8 characters long")
+                raise ValueError("Phone number must be between 8 and 20 characters long")
             
             # Basic phone validation - allows digits, spaces, hyphens, and parentheses
             if not re.match(r'^\+[\d\s\-\(\)]+$', v):
